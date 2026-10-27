@@ -82,8 +82,18 @@ def test_args_are_coerced_to_declared_types():
     assert tool.normalize_args({"order_id":"O-1","qty":2.0,"extra":"ignored"})=={"order_id":"O-1","qty":2}
     assert tool.normalize_args({"order_id":12,"qty":"2"})=={"order_id":"12","qty":None}
     assert tool.normalize_args({"order_id":True,"qty":2.5})=={"order_id":None,"qty":None}
+    for bad in (float("nan"),float("inf"),float("-inf")):
+        assert tool.normalize_args({"order_id":"O-1","qty":bad})=={"order_id":"O-1","qty":None}
     assert tool.json_schema()=={"type":"object","properties":{"order_id":{"type":"string"},"qty":{"type":"integer"}},
                                 "required":["order_id"],"additionalProperties":False}
+
+def test_non_finite_and_oversized_numbers_become_null():
+    spec=parse_spec(toy(tools__0__params={"order_id":{"type":"string"},"weight":{"type":"number"},"qty":{"type":"integer"}}))
+    tool=spec.tool("ship_order").tool
+    for bad in (float("nan"),float("inf"),10**400):
+        assert tool.normalize_args({"order_id":"O-1","weight":bad})["weight"] is None
+    for bad in (float("nan"),float("-inf")):
+        assert tool.normalize_args({"order_id":"O-1","qty":bad})["qty"] is None
 
 @pytest.mark.parametrize("change,message",[
     ({"policies__0__rule":"deny refund_order when true"},          "unknown tool 'refund_order'"),
@@ -105,6 +115,7 @@ def test_args_are_coerced_to_declared_types():
     ({"default_kind":"other"},                                     "default_kind 'other'"),
     ({"tools__0__mode":"admin"},                                   "Extra inputs are not permitted"),
     ({"policies__0__id":"p1"},                                     "should match pattern"),
+    ({"tools__0__name":"when","policies__0__rule":"deny ship_order when true"}, "'when' is a rule keyword"),
 ])
 def test_invalid_specs_are_rejected_with_a_reason(change,message):
     assert message in problems(toy(**change))
@@ -124,6 +135,13 @@ def test_yaml_dates_and_bad_documents_rejected():
     assert "date is not allowed" in problems(TOY.replace("log: []","opened: 2026-10-28"))
     assert "not valid YAML" in problems("name: [unclosed")
     assert "must be a YAML mapping" in problems("- just a list")
+
+def test_recursive_and_deeply_nested_yaml_rejected():
+    assert "recursive YAML alias" in problems(TOY.replace("log: []","log: &loop [*loop]"))
+    assert "recursive YAML alias" in problems(TOY.replace("result: {","result: &r {again: *r, "))
+    assert "nested more than" in problems(TOY.replace("log: []","log: "+"["*60+"]"*60))
+    shared=TOY.replace("log: []","log: &shared [1]\n  copy: *shared")
+    assert parse_spec(shared).fresh_state()["copy"]==[1]
 
 def test_yaml_tags_cannot_build_python_objects():
     assert "not valid YAML" in problems("name: !!python/object/apply:os.system ['echo hi']")

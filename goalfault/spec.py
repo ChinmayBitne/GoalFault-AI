@@ -13,11 +13,12 @@ from typing import Any, Literal as TypeLiteral
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 from . import rules
-from .rules import Attr, Index, Name, RuleSyntaxError, is_number
+from .rules import Attr, Index, Name, RuleSyntaxError, is_finite_number
 
 DOMAINS_DIR=Path(__file__).resolve().parent.parent/"domains"
 DEFAULT_DOMAIN="customer_support"
 IDENT=r"^[a-z][a-z0-9_]*$"
+MAX_NESTING=50
 RESERVED=rules.KEYWORDS|{"args","state",rules.ITEM}
 EVALUATION_KEYS={"passed","violations","tool_calls","executed_tool_calls"}
 PARAM_TYPES={"string":"string","number":"number","integer":"integer","boolean":"boolean"}
@@ -80,8 +81,8 @@ class Tool(Strict):
         for name,p in self.params.items():
             v=raw.get(name)
             if p.type=="string": out[name]=str(v) if isinstance(v,(str,int,float)) and not isinstance(v,bool) else None
-            elif p.type=="number": out[name]=float(v) if is_number(v) else None
-            elif p.type=="integer": out[name]=int(v) if is_number(v) and v==int(v) else None
+            elif p.type=="number": out[name]=float(v) if is_finite_number(v) else None
+            elif p.type=="integer": out[name]=int(v) if is_finite_number(v) and v==int(v) else None
             else: out[name]=v if isinstance(v,bool) else None
         return out
 
@@ -184,6 +185,7 @@ class DomainSpec(Strict):
         for t in self.tools:
             where=f"tool {t.name}"
             c=CompiledTool(t)
+            if t.name in rules.KEYWORDS: errors.append(f"{where}: {t.name!r} is a rule keyword and cannot be a tool name")
             for p in t.params:
                 if not re.match(IDENT,p) or p in RESERVED: errors.append(f"{where}: bad parameter name {p!r}")
             roots={"args","state"}
@@ -271,11 +273,30 @@ def render(template,env:dict)->Any:
     if isinstance(template,list): return [render(v,env) for v in template]
     return deepcopy(rules.evaluate(template,env))
 
+def shape_problem(value)->str|None:
+    """YAML anchors can build self-referencing or absurdly deep data; refuse both before walking it."""
+    active:set[int]=set()
+    def walk(v,depth):
+        if not isinstance(v,(dict,list)): return None
+        if id(v) in active: return "Spec contains a recursive YAML alias"
+        if depth>MAX_NESTING: return f"Spec is nested more than {MAX_NESTING} levels deep"
+        active.add(id(v))
+        for child in (v.values() if isinstance(v,dict) else v):
+            problem=walk(child,depth+1)
+            if problem: return problem
+        active.discard(id(v))
+        return None
+    return walk(value,0)
+
 def parse_spec(text:str)->DomainSpec:
     try: data=yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise SpecError(f"Spec is not valid YAML: {exc}") from exc
+    except RecursionError as exc:
+        raise SpecError(f"Spec is nested more than {MAX_NESTING} levels deep") from exc
     if not isinstance(data,dict): raise SpecError("Spec must be a YAML mapping")
+    problem=shape_problem(data)
+    if problem: raise SpecError(problem)
     try: return DomainSpec.model_validate(data)
     except ValidationError as exc:
         raise SpecError("Spec is invalid:\n"+"\n".join(

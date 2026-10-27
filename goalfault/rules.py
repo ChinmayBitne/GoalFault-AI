@@ -18,6 +18,7 @@ Evaluation never raises on bad data: a missing field is null, ordering compariso
 between mismatched types are false, and arithmetic on non-numbers is null.
 """
 from __future__ import annotations
+import math
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -274,6 +275,11 @@ def parse_rule(source:str)->Rule:
 def is_number(v)->bool:
     return isinstance(v,(int,float)) and not isinstance(v,bool)
 
+def is_finite_number(v)->bool:
+    if not is_number(v): return False
+    try: return math.isfinite(v)
+    except OverflowError: return False
+
 def items_of(v)->list:
     if isinstance(v,dict): return list(v.values())
     if isinstance(v,list): return v
@@ -283,6 +289,12 @@ def equal(a,b)->bool:
     # true is not 1 here, unlike Python.
     if isinstance(a,bool) or isinstance(b,bool):
         return isinstance(a,bool) and isinstance(b,bool) and a==b
+    if isinstance(a,list) and isinstance(b,list):
+        return len(a)==len(b) and all(equal(x,y) for x,y in zip(a,b))
+    if isinstance(a,dict) and isinstance(b,dict):
+        return a.keys()==b.keys() and all(equal(a[k],b[k]) for k in a)
+    if isinstance(a,(list,dict)) or isinstance(b,(list,dict)):
+        return False
     return a==b
 
 def compare(op:str,a,b)->bool:
