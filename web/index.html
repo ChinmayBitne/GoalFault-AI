@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"/>
+ <meta name="viewport" content="width=device-width,initial-scale=1"/>
+ <meta name="theme-color" content="#080d14"/>
+ <title>GoalFault AI — Crash-test the objective</title>
+ <link rel="stylesheet" href="/assets/styles.css"/>
+</head>
+<body>
+<div class="app">
+ <aside class="sidebar">
+  <div class="brand"><div class="brand-icon">GF<span>◈</span></div><div><strong>goalfault<span class="brand-ai">.ai</span></strong><small>Agent reliability laboratory</small></div></div>
+  <div class="sidebar-label">LABORATORY</div>
+  <nav><a class="nav-link active" href="#workspace">◫ <span>Overview</span></a><a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a><a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a></nav>
+  <div class="sidebar-label">MODEL ENGINE</div>
+  <div class="engine"><span class="green-dot"></span><div><b>Meta Muse Spark</b><small id="modelStatus">Checking configuration…</small></div></div>
+  <div class="sidebar-bottom"><span>GOALFAULT / 0.1.0</span><span class="build-label">RESEARCH BUILD</span></div>
+ </aside>
+ <main id="workspace">
+  <header class="topbar"><div><span class="crumb">LAB /</span> <span>OVERVIEW</span></div><div class="topright"><span class="status-dot"></span> Isolated simulation <span class="line"></span><span id="dateLabel">OCT 2026</span></div></header>
+  <div class="content">
+   <section class="hero">
+     <div class="eyebrow"><span class="eyebrow-line"></span> SYSTEM 01 / OBJECTIVE INTEGRITY</div>
+     <h1>Make the agent<br/><em>prove its goals.</em></h1>
+     <p>Discover where an AI can satisfy its metrics while failing the humans it serves. Generate stress tests, approve the scenarios, and inspect every tool action against policy.</p>
+     <div class="hero-row"><a href="#scenarios" class="main-cta">Open scenario studio <span>↗</span></a><span class="hero-note">NO REAL ACCOUNTS · NO REAL PAYMENTS</span></div>
+     <div class="hero-pattern" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="orb-core">G<span>F</span></div></div>
+   </section>
+   <section class="stats" aria-label="Metrics"><div class="stat"><small>SCENARIOS</small><b id="scenarioCount">—</b><span>Ready for review</span></div><div class="stat"><small>SIMULATION RUNS</small><b id="runCount">—</b><span>Recorded evidence</span></div><div class="stat"><small>POLICY VIOLATIONS</small><b id="violationCount">—</b><span>From executed actions</span></div><div class="stat"><small>ENVIRONMENTS</small><b>03</b><span>Isolated test cases</span></div></section>
+   <section id="scenarios" class="studio section"><div class="section-title"><div><span class="eyebrow small">01 / TEST ENGINEERING</span><h2>Scenario studio</h2><p>Choose a generated scenario or express a failure mode in plain English.</p></div><span class="label-outline">HUMAN-IN-THE-LOOP</span></div>
+   <div class="work-grid">
+     <div class="panel creation-panel">
+       <div class="panel-heading"><b>Describe a risk</b><span class="panel-tag">NATURAL LANGUAGE</span></div>
+       <label for="scenarioText">What should the agent be tested against?</label>
+       <textarea id="scenarioText" maxlength="1500" spellcheck="true" placeholder="Example: A customer wants a $180 refund, but manager approval has expired. Can the agent be pressured to issue it anyway?"></textarea>
+       <div class="field-foot"><small>Scope: simulated customer-support tools and policies</small><small id="charCount">0 / 1500</small></div>
+       <div class="mode-line"><label for="generationMode">Scenario source</label><select id="generationMode"><option value="demo">Offline template (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
+       <button class="primary-btn" id="composeBtn">Generate proposal <span>→</span></button>
+       <button class="outline-btn" id="discoverBtn">✦ Discover a high-risk scenario</button>
+       <div class="hint">Every new proposal requires your approval before execution. No live customer systems are contacted.</div>
+     </div>
+     <div class="panel queue-panel">
+       <div class="panel-heading"><b>Approval queue</b><span class="counter" id="queueCount">0</span></div>
+       <div id="scenarioList" class="scenario-list"><p class="muted">Loading scenarios…</p></div>
+     </div>
+   </div>
+   </section>
+   <section class="section evidence-section" id="results"><div class="section-title"><div><span class="eyebrow small">02 / VERIFICATION</span><h2>Evidence inspector</h2><p>Independent policy checks, event-level trace and reproducible replay.</p></div><span class="label-outline">MEASURED / NOT NARRATED</span></div>
+     <div class="panel result-panel">
+       <div class="result-header"><div><b id="resultTitle">No test selected</b><small id="resultMeta">Approve a scenario and execute it to inspect evidence.</small></div><span class="pill neutral" id="resultPill">NO DATA</span></div>
+       <div class="result-body" id="resultBody"><div class="empty-state"><div class="empty-icon">⌁</div><h3>Waiting for the first experiment</h3><p>Choose a scenario, approve it, then run a controlled fixture or live Muse agent to inspect the actual tool trace.</p></div></div>
+     </div>
+   </section>
+   <footer><span>GOALFAULT AI — META GLOBAL AI DEVELOPER HACKATHON 2026</span><span>Evidence before confidence.</span></footer>
+  </div>
+ </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="reviewDialog"><form method="dialog"><div class="dialog-header"><span>TEST APPROVAL</span><button aria-label="Close review dialog" value="cancel" class="plain-btn">✕</button></div><h2 id="reviewTitle"></h2><p id="reviewDesc" class="muted"></p><label for="reviewMessage">Simulated user message (editable)</label><textarea id="reviewMessage" rows="5" maxlength="1500"></textarea><div class="approval-note">Review the prompt, risk, and expected invariant. Approval authorizes only execution in the isolated simulated tool environment.</div><div class="dialog-actions"><button type="button" id="rejectBtn" class="danger-btn">Reject</button><button type="button" id="approveBtn" class="primary-btn">Approve test →</button></div></form></dialog>
+<script src="/assets/app.js" defer></script>
+</body>
+</html>
