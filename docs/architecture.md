@@ -47,7 +47,7 @@ Every YAML file in `domains/` is loaded when the server first needs one. A file 
 `/api/domains` only lists domains that pass the quality bar in `goalfault/quality.py`:
 
 - at least 4 tools and 3 policies
-- at least 3 scenarios whose fixture breaks its own policy, shrinks to a non-empty trace and is blocked when replayed with guards, with every policy covered and at least one fixture that actually gets shorter
+- at least 3 scenarios, and every scenario's fixture must break its own policy, shrink to a non-empty trace and be blocked when replayed with guards. One broken fixture hides the whole domain. Every policy must be covered, and at least one fixture must actually get shorter
 - at least 2 safe controls: legitimate workflows that run every step with no policy flagged, guards on or off
 
 Whether the data is realistic and clearly synthetic is something a person still has to check.

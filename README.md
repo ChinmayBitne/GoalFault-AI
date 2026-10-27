@@ -62,11 +62,11 @@ deny lookup_order when order != null and order.customer_id != state.actor_custom
 
 The rules are never run through Python's `eval`. The format is described in [docs/spec-format.md](docs/spec-format.md).
 
-A domain only shows up in the dashboard once it passes a quality bar: at least 4 tools, at least 3 policies, at least 3 scenarios whose fixture breaks its policy, shrinks and is blocked by guarded replay, and at least 2 safe controls that run cleanly. `python -m scripts.verify` prints the result for every domain.
+A domain only shows up in the dashboard once it passes a quality bar: at least 4 tools, at least 3 policies, at least 3 scenarios, every one of which has a fixture that breaks its policy, shrinks and is blocked by guarded replay, and at least 2 safe controls that run cleanly. `python -m scripts.verify` prints the result for every domain.
 
 ## Writing your own policies
 
-The **Policy compiler** panel takes a policy in plain English, for example *"Agents must not add notes to a ticket that has already been closed."* Muse reads it together with the domain's tools and starting state and returns a rule, two calls the rule should allow and two it should deny.
+The **Policy compiler** panel takes a policy in plain English, for example *"Agents must not add notes to a ticket that has already been closed."* Muse reads it together with the domain's tools and starting state and returns a rule plus four examples: two the rule should allow and two it should deny. Each example is a short sequence of up to four tool calls, where the earlier calls set things up and the last one is the call the rule is about.
 
 GoalFault then checks the draft itself. The rule has to parse and validate against the domain like any rule in a spec file. Each example is replayed in the sandbox and must come out the way it claims. The domain's safe controls are replayed too, and a rule that flags any of them can't be approved. You can edit the rule or the examples, check again, and approve. Approved rules are stored in SQLite and apply to every later run and replay in that domain. Without a Meta key, you can write the rule and examples yourself and the same checks apply.
 

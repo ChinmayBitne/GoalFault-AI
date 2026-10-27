@@ -38,7 +38,9 @@ Both work on the domain picked in the request. The kinds offered to the model ar
 
 The policy text goes in the user message, and the prompt says it is data to translate, not instructions. The model is asked for exactly 2 `should_pass` and 2 `should_fail` examples. Each is a short list of tool calls run from the starting state, so an example can set things up first (open a return, close a ticket) before the call the rule is about.
 
-The reply uses structured output. Tool names are an enum from the spec. Each call's arguments come back as a JSON string (`args_json`), since every tool has different parameters, and it is parsed strictly. `NaN`, infinities and anything that isn't an object are rejected. Nothing the model returns is executed. The rule goes through the same parser and spec validation as a rule in a YAML file, and the examples are replayed in the sandbox. See [architecture.md](architecture.md#compiled-policies) for the checks. A reply that doesn't fit the schema is an HTTP 502, and its cost is still logged.
+The reply uses structured output. Tool names are an enum from the spec. Each call's arguments come back as a JSON string (`args_json`), since every tool has different parameters, and it is parsed strictly. `NaN`, infinities and anything that isn't an object are rejected. Nothing the model returns is run as code or outside the sandbox. The rule goes through the same parser and spec validation as a rule in a YAML file. The example tool calls are replayed, but only as sandbox tool calls against a fresh copy of the synthetic state, like any fixture. See [architecture.md](architecture.md#compiled-policies) for the checks.
+
+There are two kinds of failure. A reply that doesn't fit the schema (bad JSON, missing fields, malformed `args_json`) is an HTTP 502, nothing is saved, and its cost is still logged. A reply that fits the schema but whose rule doesn't validate, or whose examples don't behave as claimed, is saved as a `proposed` draft with a failing report, so a person can fix it and check again.
 
 This call sends `reasoning_effort: "low"` and `max_completion_tokens: 4000`. Reasoning tokens count toward the output limit. In testing, the first live compile at the default limit of 2000 spent 1998 of them on reasoning, and the JSON was cut off. At low effort, the two successful compiles used about 1,900 to 2,100 completion tokens each.
 
@@ -112,7 +114,8 @@ The cap is checked before each turn of an agent run, not just at the start. A ru
 | Non-JSON reply | HTTP 502 naming the exception type |
 | No `choices` in the reply | HTTP 502. The call's tokens are still logged if the reply had usage |
 | A choice with no `message` | HTTP 502 on the first turn. On a later turn the run ends with `stop_reason: "error"` |
-| Proposal or compiled policy fails validation | HTTP 502, nothing saved, cost still logged |
+| Proposal fails validation, or a compile reply doesn't fit its schema | HTTP 502, nothing saved, cost still logged |
+| Compiled rule is invalid or its examples fail | Saved as a `proposed` draft with a failing report. It can't be approved until fixed |
 | Unknown tool requested | Recorded as `unrecognized_tool`, state unchanged |
 | Tool call without an `id` | A stable ID `call_<turn>_<n>` is made up, used in the reply message and recorded on the trace event with `call_id_synthesized: true` |
 | Tool arguments that aren't valid JSON, or JSON that isn't an object | The tool is **not** run. The trace event gets `arg_error` and `raw_arguments`, the model receives `{"error": "invalid_arguments"}`, and replay and trace shrinking skip the event |

@@ -162,7 +162,7 @@ A domain is only listed in the dashboard if `goalfault/quality.py` passes it:
 |---|---|
 | tools | at least 4 |
 | policies | at least 3 |
-| failing scenarios | at least 3 fixtures that break their own policy, shrink to a non-empty trace and are blocked by guarded replay |
+| failing scenarios | at least 3 scenarios, and every scenario's fixture breaks its own policy, shrinks to a non-empty trace and is blocked by guarded replay |
 | policy coverage | every policy has a failing scenario |
 | shrinking | at least one fixture shrinks to fewer actions |
 | safe controls | at least 2, each running cleanly with guards on and off |
