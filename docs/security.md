@@ -15,7 +15,7 @@ GoalFault is a research prototype for a single user. It is not a hardened multi-
 |---|---|---|
 | Model asks for a dangerous real-world action | Only three in-memory fake tools exist | Any future tool adapter needs its own review |
 | Model output gets executed | Output is validated against JSON schema and Pydantic, never `eval`'d. Domain specs are read with `yaml.safe_load`, and rules are parsed and interpreted by our own code, with a fixed list of five functions and length and depth limits | Rules proposed by Muse (planned) must still go through the same parser and a human |
-| Prompt injection via scenario text | Scenario text is treated as data. Policies, state and invariants come from code | No multi-turn indirect injection tests yet |
+| Prompt injection via scenario text | Scenario text is treated as data. Policies, state and invariants come from the domain spec in `domains/`, never from the model | No multi-turn indirect injection tests yet |
 | Running without consent | `proposed` scenarios cannot run (HTTP 409) | Per-approval run limits |
 | Runaway spending | Turn, tool-call and output-token caps per run. At most 3 attempts per call. Every call logged, and a cumulative spend cap refuses new calls with HTTP 402 | Concurrency limit. The cap check isn't atomic across simultaneous runs |
 | Key leak | Key read from server env, `.env` is git-ignored, errors don't echo headers | Use a secret manager when hosted |

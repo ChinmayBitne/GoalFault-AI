@@ -6,7 +6,7 @@ Today there is one domain, `domains/customer_support.yaml`. It is a straight por
 
 ## Loading and validation
 
-`goalfault/spec.py` loads a spec with `yaml.safe_load`, so YAML tags can't build Python objects. Pydantic then checks the shape, and unknown fields are rejected anywhere in the file.
+`goalfault/spec.py` loads a spec with `yaml.safe_load`, so YAML tags can't build Python objects. A recursive YAML alias, or data nested more than 50 levels deep, is rejected before anything else looks at it. Pydantic then checks the shape, and unknown fields are rejected in every structured section (the top level, prompts, tools, params, effects, policies and scenarios). The free-form mappings, `initial_state`, a tool's `result` and a fixture's `args`, accept any keys; `result` is still checked expression by expression, and fixture argument names are checked below.
 
 After that, every expression in the file is parsed and checked against the spec itself:
 
@@ -16,8 +16,8 @@ After that, every expression in the file is parsed and checked against the spec 
 - other names must be one of the tool's `let` bindings
 - `item` is only allowed inside a collection function
 - effect targets must be a field of `state` or of a binding, never `args`
-- every scenario points at a real policy, and its fixture only uses real tools and arguments
-- tool names, policy IDs, invariants and scenario kinds are unique
+- every scenario points at a real policy, and its fixture only uses real tools and declared argument names (argument values are coerced at run time like any other call, not type-checked here)
+- tool names, policy IDs, invariants and scenario kinds are unique, and a tool can't be named after a rule keyword such as `when`
 - `initial_state` is plain JSON data (an unquoted YAML date is rejected)
 
 All problems are collected and reported together, with where each one is. A spec with any problem doesn't load.
@@ -69,7 +69,7 @@ default_kind: premature_closure   # fallback for the offline keyword classifier
 
 A call goes through these steps:
 
-1. **Arguments.** Each declared parameter is coerced to its type. Anything that doesn't fit, or is missing, becomes `null`. Extra arguments are ignored, but the raw arguments are still kept in the trace.
+1. **Arguments.** Each declared parameter is coerced to its type. Anything that doesn't fit, or is missing, becomes `null`; that includes `NaN`, infinities and numbers too large for a float. Extra arguments are ignored, but the raw arguments are still kept in the trace.
 2. **Bindings.** `let` names are evaluated in order. Each one can use the ones before it. A binding points at the live state, so an effect on `order.refunded` changes the real order.
 3. **Policies.** Every policy rule for this tool is checked against the state *before* the call. The first one that matches is recorded on the event as `violation_if_executed`.
 4. **Preconditions.** These are checked in order. The first one that is true ends the call with `{"error": "<error>"}`. The call doesn't execute, so it can't count as a violation.
@@ -164,12 +164,12 @@ A collection is a list, or the values of a mapping. Inside the condition, `item`
 - A missing field or index is `null`. So `state.orders['NOPE'].amount` is `null`, not an error.
 - `<`, `<=`, `>` and `>=` are only true between two numbers or two strings. Anything else, including `null`, is false. So `args.amount > 100` is false when `amount` is missing.
 - `+` and `-` on anything but numbers give `null`.
-- `true` is not equal to `1`. `item.verified == true` only matches a real boolean.
+- `true` is not equal to `1`, including inside lists and mappings (`[true] == [1]` is false). `item.verified == true` only matches a real boolean.
 - `in` checks list items, mapping keys or substrings.
 
 **Limits.** Rules are at most 2000 characters and 40 levels deep. Comparisons can't be chained (`1 < x < 3` is an error; write `1 < x and x < 3`).
 
-**Errors are reported, never guessed around.** A parse error gives the message, the column and the rule text:
+**Errors are reported, never guessed around.** A parse error gives the message and, when it points at a specific token, the column and the rule text (limit errors such as an over-long rule give only the message):
 
 ```text
 Unknown function 'open'; allowed: all, count, exists, len, sum at column 1: open('x')

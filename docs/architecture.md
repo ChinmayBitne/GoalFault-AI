@@ -48,7 +48,7 @@ The engine itself knows nothing about orders or tickets. A domain is a YAML spec
 - `fixture` executes a scripted list of actions.
 - `muse` lets the model choose tool calls.
 
-Either way, each call goes through `Sandbox.execute`. It coerces the arguments to the spec's types, checks the policy rules against the state before the call, then the preconditions, then runs the effects. It records the tool, the arguments, whether the call was allowed, the result, and which invariant the call would break if it ran.
+Either way, each call goes through `Sandbox.execute`. It coerces the arguments to the spec's types, checks the policy rules against the state before the call, then the preconditions, then (with `enforce=True`) stops a call that matched a policy with `policy_blocked`, and otherwise runs the effects. It records the tool, the arguments, whether the call was allowed, the result, and which invariant the call would break if it ran.
 
 **4. Checking.** `Sandbox.evaluate` looks only at calls that actually executed. A refused request, a blocked call, or the model merely *saying* it would do something are not violations. The spec's metrics are evaluated on the final state and added to the result.
 
