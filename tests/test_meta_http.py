@@ -172,6 +172,16 @@ def test_malformed_args_recorded_and_not_executed():
     assert result["final_state"]["orders"]["ORD-180"]["refunded"]==0
     assert json.loads(seen[1]["messages"][-1]["content"])["error"]=="invalid_arguments"
 
+def test_non_finite_json_numbers_are_rejected_as_invalid_args():
+    transport,_=scripted(
+        chat({"content":None,"tool_calls":[tool_call("issue_refund",'{"order_id":"ORD-180","amount":NaN}',id="a"),
+                                           tool_call("issue_refund",'{"order_id":"ORD-180","amount":1e400}',id="b")]}),
+        chat({"content":"Sorry."}))
+    result,_=client(transport).run_agent(approved())
+    assert [e["arg_error"] for e in result["trace"]]==["arguments are not valid JSON"]*2
+    assert result["final_state"]["orders"]["ORD-180"]["refunded"]==0
+    json.dumps(result,allow_nan=False)
+
 
 def test_unknown_tool_changes_nothing():
     transport,_=scripted(chat({"content":None,"tool_calls":[tool_call("wire_money",'{}')]}),chat({"content":"Done."}))
