@@ -18,7 +18,7 @@ def client(tmp_path,monkeypatch):
 
 def test_health_and_config(client):
     assert client.get("/api/health").json()["status"]=="ok"
-    assert len(client.get("/api/scenarios").json())==3
+    assert len(client.get("/api/scenarios",params={"domain":"customer_support"}).json())==3
     config=client.get("/api/config").json()
     assert config["domain"]["name"]=="customer_support" and len(config["policies"])==3
 
