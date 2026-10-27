@@ -12,7 +12,7 @@
  <aside class="sidebar">
   <div class="brand"><div class="brand-icon">GF<span>◈</span></div><div><strong>goalfault<span class="brand-ai">.ai</span></strong><small>Agent reliability laboratory</small></div></div>
   <div class="sidebar-label">LABORATORY</div>
-  <nav><a class="nav-link active" href="#workspace">◫ <span>Overview</span></a><a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a><a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a></nav>
+  <nav><a class="nav-link active" href="#workspace">◫ <span>Overview</span></a><a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a><a class="nav-link" href="#policies">§ <span>Policy compiler</span></a><a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a></nav>
   <div class="sidebar-label">MODEL ENGINE</div>
   <div class="engine"><span class="green-dot"></span><div><b>Meta Muse Spark</b><small id="modelStatus">Checking configuration…</small></div></div>
   <div class="spend" title="Estimated cost of logged Meta calls against the local spend cap"><div class="spend-row"><span>API SPEND</span><b id="spendText">—</b></div><div class="spend-bar"><span id="spendBar"></span></div><small id="spendNote">Loading usage…</small></div>
@@ -47,7 +47,44 @@
      </div>
    </div>
    </section>
-   <section class="section evidence-section" id="results"><div class="section-title"><div><span class="eyebrow small">02 / VERIFICATION</span><h2>Evidence inspector</h2><p>Independent policy checks, event-level trace and reproducible replay.</p></div><span class="label-outline">MEASURED / NOT NARRATED</span></div>
+   <section id="policies" class="section compiler-section"><div class="section-title"><div><span class="eyebrow small">02 / POLICY COMPILER</span><h2>Policy compiler</h2><p>Write a policy in plain English. It becomes a checked rule only after you approve it.</p></div></div>
+   <div class="work-grid">
+     <div class="panel creation-panel">
+       <div class="panel-heading"><b>Write a policy</b><span class="panel-tag">PLAIN ENGLISH</span></div>
+       <label for="policyText">Policy for the selected domain</label>
+       <textarea id="policyText" maxlength="500" spellcheck="true" placeholder="Example: Agents must not add notes to a ticket that has already been closed."></textarea>
+       <div class="field-foot"><small>Muse drafts a rule and examples; GoalFault parses and replays them. Nothing it returns is executed as code.</small><small id="policyCharCount">0 / 500</small></div>
+       <div class="mode-line"><label for="policyMode">Rule source</label><select id="policyMode"><option value="manual">Write the rule myself (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
+       <div id="manualFields">
+         <label for="manualRule">Rule</label>
+         <input id="manualRule" class="text-input mono" maxlength="2000" placeholder="deny add_note when ticket != null and ticket.closed"/>
+         <label for="manualInvariant">Invariant name</label>
+         <input id="manualInvariant" class="text-input" maxlength="60" placeholder="no_notes_on_closed_tickets"/>
+       </div>
+       <button class="primary-btn" id="compileBtn">Compile and check <span>→</span></button>
+       <div class="hint">Every draft is checked against its own examples and the domain's safe controls. Approval is refused until every check passes.</div>
+     </div>
+     <div class="panel queue-panel">
+       <div class="panel-heading"><b>Compiled policies</b><span class="counter" id="policyCount">0</span></div>
+       <div id="policyList" class="scenario-list"><p class="muted">No compiled policies for this domain yet.</p></div>
+     </div>
+   </div>
+   <div class="panel draft-panel" id="draftPanel" hidden>
+     <div class="result-header"><div><b id="draftTitle">Draft</b><small id="draftMeta"></small></div><span class="pill neutral" id="draftPill">PROPOSED</span></div>
+     <div class="draft-body">
+       <p class="result-note" id="draftText"></p>
+       <label for="draftRule">Rule</label>
+       <textarea id="draftRule" class="mono" rows="3" maxlength="2000"></textarea>
+       <label for="draftInvariant">Invariant name</label>
+       <input id="draftInvariant" class="text-input" maxlength="60"/>
+       <label for="draftExamples">Examples (JSON: calls the rule must allow and deny; the last call of each is the one judged)</label>
+       <textarea id="draftExamples" class="mono" rows="12"></textarea>
+       <div id="draftReport"></div>
+       <div class="result-actions"><button type="button" class="tiny-btn" id="recheckBtn">Save edits and re-check</button><button type="button" class="tiny-btn callout" id="approvePolicyBtn">Approve rule →</button><button type="button" class="danger-btn" id="rejectPolicyBtn">Reject</button></div>
+     </div>
+   </div>
+   </section>
+   <section class="section evidence-section" id="results"><div class="section-title"><div><span class="eyebrow small">03 / VERIFICATION</span><h2>Evidence inspector</h2><p>Independent policy checks, event-level trace and reproducible replay.</p></div><span class="label-outline">MEASURED / NOT NARRATED</span></div>
      <div class="panel result-panel">
        <div class="result-header"><div><b id="resultTitle">No test selected</b><small id="resultMeta">Approve a scenario and execute it to inspect evidence.</small></div><span class="pill neutral" id="resultPill">NO DATA</span></div>
        <div class="result-body" id="resultBody"><div class="empty-state"><div class="empty-icon">⌁</div><h3>Waiting for the first experiment</h3><p>Choose a scenario, approve it, then run a controlled fixture or live Muse agent to inspect the actual tool trace.</p></div></div>
@@ -60,5 +97,6 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <dialog id="reviewDialog"><form method="dialog"><div class="dialog-header"><span>TEST APPROVAL</span><button aria-label="Close review dialog" value="cancel" class="plain-btn">✕</button></div><h2 id="reviewTitle"></h2><p id="reviewDesc" class="muted"></p><label for="reviewMessage">Simulated user message (editable)</label><textarea id="reviewMessage" rows="5" maxlength="1500"></textarea><div class="review-grid"><div><label for="reviewObjective">Agent objective (what it is scored on)</label><input id="reviewObjective" maxlength="300" placeholder="e.g. You are scored on tickets closed per hour."/></div><div><label for="reviewPressure">Pressure</label><select id="reviewPressure"><option value="0">0 · none</option><option value="1">1 · mild</option><option value="2">2 · strong</option><option value="3">3 · extreme</option></select></div></div><small class="review-hint">Pressure adds the objective to the live agent prompt. Policies stay the same at every level. Level 0 sends no objective.</small><div class="approval-note">Review the prompt, risk, and expected invariant. Approval authorizes only execution in the isolated simulated tool environment.</div><div class="dialog-actions"><button type="button" id="rejectBtn" class="danger-btn">Reject</button><button type="button" id="approveBtn" class="primary-btn">Approve test →</button></div></form></dialog>
 <script src="/assets/app.js" defer></script>
+<script src="/assets/compiler.js" defer></script>
 </body>
 </html>
