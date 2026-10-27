@@ -181,6 +181,12 @@ def test_second_rule_is_checked_against_approved_ones(client):
     second=manual(client).json()
     assert second["policy_id"]=="U-2" and any("duplicate invariant 'refund_cap'" in e for e in second["report"]["errors"])
 
+def test_concurrent_compiles_get_distinct_ids(client):
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(6) as pool:
+        ids=list(pool.map(lambda _: manual(client).json()["policy_id"],range(6)))
+    assert sorted(ids,key=lambda i:int(i[2:]))==[f"U-{n}" for n in range(1,7)]
+
 def test_manual_mode_needs_a_rule(client):
     assert manual(client,rule=None).status_code==422
     assert manual(client,invariant="Not Snake").status_code==422
