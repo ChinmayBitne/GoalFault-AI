@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import threading
 from pathlib import Path
 from functools import lru_cache
 from uuid import uuid4
@@ -222,6 +223,10 @@ def get_policy_or_404(id:str)->dict:
     return record
 
 
+# Held from reading the next U-n to saving the draft, so concurrent compiles can't share an ID.
+# Only covers one server process, which is all SQLite here supports anyway.
+POLICY_ID_LOCK=threading.Lock()
+
 def next_policy_id(domain:str)->str:
     numbers=[int(p["policy_id"].split("-")[1]) for p in database().list_policies(domain)]
     return f"U-{max(numbers,default=0)+1}"
@@ -256,7 +261,7 @@ def domain_policies(domain:str):
 @app.post("/api/domains/{domain}/policies/compile",dependencies=[Depends(require_write)])
 def compile_policy(domain:str,req:CompileRequest):
     spec=effective_spec(domain)
-    record={"id":"POL-"+uuid4().hex[:8].upper(),"domain":domain,"policy_id":next_policy_id(domain),"status":"proposed",
+    record={"id":"POL-"+uuid4().hex[:8].upper(),"domain":domain,"policy_id":None,"status":"proposed",
             "source":req.mode,"created_at":utc_now(),"reviewed_at":None,"usage":{},"estimated_model_cost_usd":0}
     if req.mode=="muse":
         client=meta_client()
@@ -268,8 +273,10 @@ def compile_policy(domain:str,req:CompileRequest):
             raise HTTPException(422,"Manual mode needs a rule and an invariant name")
         record["draft"]={"text":req.text,"rule":req.rule,"invariant":req.invariant,"explanation":""}
         draft=edited_draft(record,req)
-    record=recheck(record,draft)
-    database().save_policy(record)
+    with POLICY_ID_LOCK:
+        record["policy_id"]=next_policy_id(domain)
+        record=recheck(record,draft)
+        database().save_policy(record)
     return record
 
 
