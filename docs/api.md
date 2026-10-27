@@ -9,7 +9,7 @@ Write routes (`POST`) are subject to the rules in [security.md](security.md#writ
 | Method | Path | Returns |
 |---|---|---|
 | GET | `/api/health` | Status, name, version |
-| GET | `/api/config` | Whether a Meta key is set (boolean only), model ID, tools, policies |
+| GET | `/api/config` | Whether a Meta key is set (boolean only), model ID, tools, policies, active domain |
 | GET | `/api/scenarios` | All scenarios |
 | GET | `/api/runs` | The 30 most recent runs |
 | GET | `/api/runs/{id}` | One run with full trace and evaluation |

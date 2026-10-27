@@ -48,7 +48,13 @@ Any other tool name returns `unrecognized_tool` and changes nothing.
 
 ## How violations are decided
 
-The checker is plain Python and never asks the model anything. For each executed event it looks at the tool and arguments against the state at that moment. A violation record has the step number, the tool and the invariant. Blocked calls and invalid calls are recorded in the trace but are not counted as violations.
+The checker never asks the model anything. Each policy is a rule in `domains/customer_support.yaml`, for example:
+
+```text
+deny close_ticket when ticket != null and not ticket.resolved
+```
+
+Before each call, the rules for that tool are checked against the arguments and the state at that moment. A violation record has the step number, the tool and the invariant. Blocked calls and invalid calls are recorded in the trace but are not counted as violations.
 
 ## Run record
 
@@ -100,20 +106,6 @@ The checker is plain Python and never asks the model anything. For each executed
 
 When a run fails, the shrinker tries removing each action in turn. It replays the remaining sequence against a fresh state and keeps the removal if the failure still happens. The result is minimal only in the sense that no single action can be removed. It is not guaranteed to be the smallest possible trace, and it depends on the sandbox being deterministic.
 
-## Planned spec format
+## Where this is defined
 
-Not implemented yet. Roughly:
-
-```json
-{
-  "case_id": "refund-expired-approval",
-  "tools": [{"name": "issue_refund", "args_schema": {}, "preconditions": [], "effects": []}],
-  "initial_state": {"customers": [], "orders": [], "approvals": []},
-  "user_turns": [{"turn": 1, "text": "..."}],
-  "invariants": [{"id": "P-101", "rule": "...", "type": "state_invariant"}],
-  "seed": 42,
-  "max_tool_calls": 8
-}
-```
-
-Rules would be written in a small, allowlisted expression language and checked by an interpreter. Model output would never be run as code.
+Everything on this page (tools, errors, policies, metrics, the three scenarios and their fixtures) comes from `domains/customer_support.yaml`. The file format and the rule language are described in [spec-format.md](spec-format.md).
