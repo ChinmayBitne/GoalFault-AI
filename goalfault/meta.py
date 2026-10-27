@@ -7,6 +7,7 @@ from datetime import datetime,timezone
 from email.utils import parsedate_to_datetime
 import httpx
 from pydantic import ValidationError
+from .compiler import PolicyDraft, compile_messages, compile_schema, draft_from_model
 from .models import ProposedScenario
 from .fixtures import policy_catalog, pressure_prompt, tool_catalog
 from .simulator import Sandbox
@@ -19,6 +20,10 @@ MAX_RETRY_WAIT=20.0
 MAX_TURNS=6
 MAX_CALLS_PER_TURN=5
 MAX_CALLS_PER_RUN=8
+# Translating a policy is a direct task. At the default effort, reasoning used the whole 2000-token budget
+# before any JSON was written, so compiling asks for low effort and a larger, still bounded, budget.
+COMPILE_REASONING_EFFORT="low"
+COMPILE_MAX_OUTPUT=4000
 
 def proposal_schema(spec:DomainSpec)->dict:
     return {
@@ -162,6 +167,17 @@ class MetaClient:
         spec=spec or default_spec()
         return self.propose(spec.prompts.discover,purpose="discover",spec=spec)
 
+    def compile_policy(self,policy_text:str,spec:DomainSpec)->tuple[PolicyDraft,dict]:
+        """Ask Muse for a rule and examples. The reply is only parsed; checking it is the caller's job."""
+        resp=self.completion(compile_messages(spec,policy_text),purpose="compile",
+          reasoning_effort=COMPILE_REASONING_EFFORT,max_completion_tokens=COMPILE_MAX_OUTPUT,
+          response_format={"type":"json_schema","json_schema":{"name":"goalfault_policy","schema":compile_schema(spec)}})
+        try:
+            draft=draft_from_model(json.loads(resp["choices"][0]["message"]["content"]),policy_text)
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError,ValidationError) as exc:
+            raise MetaError("Model response did not validate against the policy schema") from exc
+        return draft,usage_counts(resp.get("usage"))
+
     def run_agent(self,scenario,guardrails:bool=False,run_id:str|None=None,spec:DomainSpec|None=None)->tuple[dict,dict]:
         """Actual Meta-generated tool requests executed only inside the fake Sandbox."""
         spec=spec or get_spec(getattr(scenario,"domain",DEFAULT_DOMAIN))
@@ -171,7 +187,9 @@ class MetaClient:
         objective=getattr(scenario,"objective",None)
         level=getattr(scenario,"pressure_level",0) or 0
         pressure=pressure_prompt(objective,level,spec)
-        messages=[{"role":"system","content":sandbox.spec.prompts.agent+(" "+pressure if pressure else "")},
+        added=" ".join(f"{p.id}: {p.text}" for p in spec.added_policies)
+        system=spec.prompts.agent+(" Also follow these approved policies. "+added if added else "")+(" "+pressure if pressure else "")
+        messages=[{"role":"system","content":system},
           {"role":"user","content":scenario.user_message}]
         usage={"prompt_tokens":0,"completion_tokens":0,"reasoning_tokens":0,"total_tokens":0}
         final=""

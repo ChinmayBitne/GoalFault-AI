@@ -8,12 +8,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from .models import ComposeRequest,DiscoverRequest,ReviewRequest,RunRequest,ReplayRequest,Scenario
+from pydantic import ValidationError
+from .models import (ComposeRequest,CompileRequest,DiscoverRequest,PolicyEdit,PolicyReviewRequest,ReviewRequest,
+                     RunRequest,ReplayRequest,Scenario)
+from .compiler import PolicyDraft,check_draft
 from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
 from .quality import domain_quality
-from .spec import DEFAULT_DOMAIN,DomainSpec,UnknownDomain,get_spec,registry
+from .spec import DEFAULT_DOMAIN,DomainSpec,SpecError,UnknownDomain,get_spec,registry
 from .storage import Storage,utc_now
 
 load_dotenv()
@@ -46,6 +49,22 @@ def domain_spec(name:str)->DomainSpec:
     except UnknownDomain: raise HTTPException(404,f"Unknown domain {name!r}") from None
 
 
+@lru_cache(maxsize=64)
+def extended_spec(domain:str,added:tuple)->DomainSpec:
+    return get_spec(domain).with_policies([{"id":i,"text":t,"invariant":v,"rule":r} for i,t,v,r in added])
+
+
+def effective_spec(domain:str,exclude:str|None=None)->DomainSpec:
+    """The domain as runs see it: the spec file plus every approved compiled policy, oldest first."""
+    base=domain_spec(domain)
+    added=tuple((p["policy_id"],p["draft"]["text"],p["draft"]["invariant"],p["draft"]["rule"])
+                for p in database().list_policies(domain) if p["status"]=="approved" and p["id"]!=exclude)
+    if not added: return base
+    try: return extended_spec(domain,added)
+    except SpecError as exc:
+        raise HTTPException(409,f"An approved policy for {domain} no longer validates against the spec; reject it to continue. {exc}") from exc
+
+
 def domain_summary(spec:DomainSpec)->dict:
     quality=domain_quality(spec.name)
     return {"name":spec.name,"title":spec.title,"description":spec.description,"default_objective":spec.default_objective,
@@ -73,7 +92,7 @@ def health(): return {"status":"ok","name":"GoalFault AI","version":"0.1.0"}
 @app.get("/api/config")
 def config(domain:str=DEFAULT_DOMAIN):
     meta=MetaClient()
-    spec=domain_spec(domain)
+    spec=effective_spec(domain)
     return {"meta_configured":meta.configured,"model":meta.model,
        "modes":["fixture","muse"],"tool_catalog":tool_catalog(spec),"policies":policy_catalog(spec),
        "domain":{"name":spec.name,"title":spec.title,"description":spec.description,"default_objective":spec.default_objective},
@@ -107,7 +126,7 @@ def save_proposal(proposal,source:str,client:MetaClient|None,usage:dict,mode:str
 
 @app.post("/api/scenarios/compose",dependencies=[Depends(require_write)])
 def compose(req:ComposeRequest):
-    spec=domain_spec(req.domain)
+    spec=effective_spec(req.domain)
     client=None
     if req.mode=="muse":
         client=meta_client()
@@ -123,7 +142,7 @@ def compose(req:ComposeRequest):
 
 @app.post("/api/scenarios/discover",dependencies=[Depends(require_write)])
 def discover(req:DiscoverRequest):
-    spec=domain_spec(req.domain)
+    spec=effective_spec(req.domain)
     if req.mode=="muse":
         client=meta_client()
         try: proposal,usage=client.discover(spec)
@@ -150,7 +169,7 @@ def review(scenario_id:str,req:ReviewRequest):
 def run_scenario(scenario_id:str,req:RunRequest):
     s=get_scenario_or_404(scenario_id)
     if s.status!="approved": raise HTTPException(409,"Review and approve this scenario before running it")
-    spec=domain_spec(s.domain)
+    spec=effective_spec(s.domain)
     run_id="RUN-"+uuid4().hex[:10].upper()
     if req.mode=="muse":
         try: result,usage=meta_client().run_agent(s,req.guardrails,run_id=run_id,spec=spec)
@@ -160,7 +179,7 @@ def run_scenario(scenario_id:str,req:RunRequest):
         result=fixture_run(s.kind,req.guardrails,spec)
         usage={}
         kind="scripted_fixture"
-    run={"id":run_id,"scenario_id":s.id,"domain":s.domain,
+    run={"id":run_id,"scenario_id":s.id,"domain":s.domain,"added_policies":[p.id for p in spec.added_policies],
          "created_at":utc_now(),"kind":kind,"source":"muse" if req.mode=="muse" else "demo_fixture",
          "guardrails":req.guardrails,"objective":s.objective,"pressure_level":s.pressure_level,
          "usage":usage,"estimated_model_cost_usd":estimate_cost(usage),
@@ -184,9 +203,10 @@ def replay(run_id:str,req:ReplayRequest):
     if not original: raise HTTPException(404,"Original run not found")
     scenario=get_scenario_or_404(original["scenario_id"])
     if scenario.status!="approved": raise HTTPException(409,"Scenario must remain approved")
-    spec=domain_spec(scenario.domain)
+    spec=effective_spec(scenario.domain)
     result=replay_actions(scenario.kind,executable_actions(original["trace"]),req.guardrails,spec)
-    r={"id":"RUN-"+uuid4().hex[:10].upper(),"scenario_id":scenario.id,"domain":scenario.domain,"created_at":utc_now(),
+    r={"id":"RUN-"+uuid4().hex[:10].upper(),"scenario_id":scenario.id,"domain":scenario.domain,
+       "added_policies":[p.id for p in spec.added_policies],"created_at":utc_now(),
        "kind":"recorded_action_replay","source":"replay","guardrails":req.guardrails,
        "source_run_id":run_id,"objective":original.get("objective"),"pressure_level":original.get("pressure_level",0),
        "usage":{},"estimated_model_cost_usd":0,
@@ -194,3 +214,83 @@ def replay(run_id:str,req:ReplayRequest):
        "minimal_failing_actions":[] if req.guardrails else minimize_failure(scenario.kind,result["trace"],spec)}
     database().save_run(r)
     return r
+
+
+def get_policy_or_404(id:str)->dict:
+    record=database().get_policy(id)
+    if not record: raise HTTPException(404,"Unknown compiled policy")
+    return record
+
+
+def next_policy_id(domain:str)->str:
+    numbers=[int(p["policy_id"].split("-")[1]) for p in database().list_policies(domain)]
+    return f"U-{max(numbers,default=0)+1}"
+
+
+def edited_draft(record:dict,edit:PolicyEdit)->PolicyDraft:
+    changes={k:v for k,v in edit.model_dump(exclude_unset=True,exclude={"approved","mode"}).items() if v is not None}
+    try: return PolicyDraft.model_validate({**record["draft"],**changes})
+    except ValidationError as exc: raise HTTPException(422,f"Draft is invalid: {exc.errors()[0]['msg']}") from exc
+
+
+def recheck(record:dict,draft:PolicyDraft)->dict:
+    # Checked alongside the other approved rules for the domain, so clashes show up here.
+    record["draft"]=draft.model_dump()
+    record["report"]=check_draft(effective_spec(record["domain"],exclude=record["id"]),draft,record["policy_id"])
+    return record
+
+
+def report_summary(report:dict)->str:
+    problems=report["errors"]+[p for key in ("should_pass","should_fail","safe_controls") for x in report[key] for p in x["problems"]]
+    return "; ".join(problems[:3]) or "checks did not pass"
+
+
+@app.get("/api/domains/{domain}/policies")
+def domain_policies(domain:str):
+    spec=domain_spec(domain)
+    return {"domain":domain,
+            "spec_policies":[{"id":p.id,"text":p.text,"invariant":p.invariant,"rule":p.rule} for p in spec.policies],
+            "compiled":list(reversed(database().list_policies(domain)))}
+
+
+@app.post("/api/domains/{domain}/policies/compile",dependencies=[Depends(require_write)])
+def compile_policy(domain:str,req:CompileRequest):
+    spec=effective_spec(domain)
+    record={"id":"POL-"+uuid4().hex[:8].upper(),"domain":domain,"policy_id":next_policy_id(domain),"status":"proposed",
+            "source":req.mode,"created_at":utc_now(),"reviewed_at":None,"usage":{},"estimated_model_cost_usd":0}
+    if req.mode=="muse":
+        client=meta_client()
+        try: draft,usage=client.compile_policy(req.text,spec)
+        except MetaError as e: raise meta_failure(e) from e
+        record.update(usage=usage,estimated_model_cost_usd=estimate_cost(usage),usage_ids=client.usage_ids)
+    else:
+        if not req.rule or not req.invariant:
+            raise HTTPException(422,"Manual mode needs a rule and an invariant name")
+        record["draft"]={"text":req.text,"rule":req.rule,"invariant":req.invariant,"explanation":""}
+        draft=edited_draft(record,req)
+    record=recheck(record,draft)
+    database().save_policy(record)
+    return record
+
+
+@app.post("/api/policies/{policy_id}/check",dependencies=[Depends(require_write)])
+def check_policy(policy_id:str,req:PolicyEdit):
+    """Save edits and re-run every check. Editing an approved rule takes it out of use until it is approved again."""
+    record=get_policy_or_404(policy_id)
+    record=recheck(record,edited_draft(record,req))
+    if record["status"]=="approved": record["status"]="proposed"
+    database().save_policy(record)
+    return record
+
+
+@app.post("/api/policies/{policy_id}/review",dependencies=[Depends(require_write)])
+def review_policy(policy_id:str,req:PolicyReviewRequest):
+    record=get_policy_or_404(policy_id)
+    record=recheck(record,edited_draft(record,req))
+    if req.approved and not record["report"]["ok"]:
+        if record["status"]=="approved": record["status"]="proposed"
+        database().save_policy(record)
+        raise HTTPException(409,f"Fix the draft before approving it: {report_summary(record['report'])}")
+    record.update(status="approved" if req.approved else "rejected",reviewed_at=utc_now())
+    database().save_policy(record)
+    return record

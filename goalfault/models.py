@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+from .compiler import MAX_EXAMPLES, DraftExample
+from .rules import MAX_RULE_LENGTH
 from .spec import DEFAULT_DOMAIN, IDENT, registry
 
 Source = Literal["demo_template", "muse", "manual"]
@@ -55,6 +57,23 @@ class RunRequest(BaseModel):
 
 class ReplayRequest(BaseModel):
     guardrails: bool = True
+
+class PolicyEdit(BaseModel):
+    """Fields a person can change on a compiled policy; anything left out keeps its current value."""
+    model_config = ConfigDict(extra="forbid")
+    text: str | None = Field(default=None, min_length=5, max_length=500)
+    rule: str | None = Field(default=None, min_length=5, max_length=MAX_RULE_LENGTH)
+    invariant: str | None = Field(default=None, pattern=IDENT, max_length=60)
+    should_pass: list[DraftExample] | None = Field(default=None, max_length=MAX_EXAMPLES)
+    should_fail: list[DraftExample] | None = Field(default=None, max_length=MAX_EXAMPLES)
+
+class CompileRequest(PolicyEdit):
+    text: str = Field(min_length=5, max_length=500)
+    # manual: the person writes the rule and examples and gets the same checks, with no model call.
+    mode: Literal["muse", "manual"] = "manual"
+
+class PolicyReviewRequest(PolicyEdit):
+    approved: bool
 
 class ProposedScenario(BaseModel):
     """What a proposal returns. The kind is checked against the target domain by whoever asked for it."""

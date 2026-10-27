@@ -151,6 +151,7 @@ class DomainSpec(Strict):
     default_kind: str
     _tools: dict[str,CompiledTool]=PrivateAttr(default_factory=dict)
     _metrics: dict[str,Any]=PrivateAttr(default_factory=dict)
+    _added: list[str]=PrivateAttr(default_factory=list)
 
     @model_validator(mode="after")
     def compile_and_check(self):
@@ -278,8 +279,16 @@ class DomainSpec(Strict):
     def with_policies(self,extra:list)->DomainSpec:
         """A copy of this spec with more policies, validated from scratch like a freshly loaded file."""
         data=self.model_dump(exclude_unset=True)
-        data["policies"]=[*data["policies"],*(p.model_dump(exclude_unset=True) if isinstance(p,Policy) else p for p in extra)]
-        return validate(data)
+        added=[p.model_dump(exclude_unset=True) if isinstance(p,Policy) else p for p in extra]
+        data["policies"]=[*data["policies"],*added]
+        spec=validate(data)
+        spec._added=[*self._added,*(p["id"] for p in added)]
+        return spec
+
+    @property
+    def added_policies(self)->list[Policy]:
+        """Policies added on top of the file, e.g. rules approved in the policy compiler."""
+        return [self.policy(id) for id in self._added]
 
 
 def assignable(node,roots:set)->bool:
