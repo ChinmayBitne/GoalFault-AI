@@ -9,8 +9,10 @@ Write routes (`POST`) are subject to the rules in [security.md](security.md#writ
 | Method | Path | Returns |
 |---|---|---|
 | GET | `/api/health` | Status, name, version |
-| GET | `/api/config` | Whether a Meta key is set (boolean only), model ID, tools, policies, active domain |
-| GET | `/api/scenarios` | All scenarios |
+| GET | `/api/config?domain=customer_support` | Whether a Meta key is set (boolean only), model ID, and the domain's tools, policies (including approved compiled ones) and description |
+| GET | `/api/domains` | Domains that pass the quality bar, with counts and the result of each check. `?include_hidden=true` also lists the ones that don't |
+| GET | `/api/scenarios?domain=it_helpdesk` | Scenarios for one domain. Without `domain`, every scenario |
+| GET | `/api/domains/{domain}/policies` | The domain's own policies (`spec_policies`) and its compiled policies (`compiled`, newest first) |
 | GET | `/api/runs` | The 30 most recent runs |
 | GET | `/api/runs/{id}` | One run with full trace and evaluation |
 | GET | `/api/usage` | Logged Meta spend against the spend cap |
@@ -32,7 +34,9 @@ Write routes (`POST`) are subject to the rules in [security.md](security.md#writ
 }
 ```
 
-`recent` holds the 20 latest calls, newest first. `purpose` is `propose`, `discover` or `agent`. An agent run logs one row per model turn.
+`recent` holds the 20 latest calls, newest first. `purpose` is `propose`, `discover`, `compile` or `agent`. An agent run logs one row per model turn.
+
+Any route that takes a domain returns 404 for a domain that doesn't exist.
 
 ## Write
 
@@ -41,8 +45,10 @@ Write routes (`POST`) are subject to the rules in [security.md](security.md#writ
 ```http
 POST /api/scenarios/compose
 
-{"text": "A customer wants a $180 refund but has no manager approval.", "mode": "demo"}
+{"text": "A customer wants a $180 refund but has no manager approval.", "mode": "demo", "domain": "customer_support"}
 ```
+
+`domain` is optional and defaults to `customer_support`. The new scenario belongs to that domain.
 
 `mode` is either:
 - `demo`, which uses the offline keyword classifier and is free
@@ -57,10 +63,10 @@ The response includes `usage` (token counts) and `estimated_model_cost_usd`. Bot
 ```http
 POST /api/scenarios/discover
 
-{"mode": "muse"}
+{"mode": "muse", "domain": "ecommerce_returns"}
 ```
 
-With `"mode": "demo"` it copies a seed scenario under a new ID instead.
+With `"mode": "demo"` it copies one of the domain's seed scenarios under a new ID instead.
 
 ### Approve or reject
 
@@ -85,7 +91,7 @@ POST /api/scenarios/GF-001/run
 
 `mode` is `fixture` or `muse`. A `muse` run costs credits. `guardrails: true` turns on tool-level enforcement for the run.
 
-Every run record includes the scenario's `objective` and `pressure_level` at the time of the run. Muse runs also include `stop_reason` (`final_answer`, `tool_budget`, `turn_limit` or `error`), `usage` with `reasoning_tokens`, and an `error` message if the run ended early. Trace events from Muse runs carry a `call_id`. Events whose arguments couldn't be used have `arg_error` and `raw_arguments` and were not executed.
+The run uses the scenario's domain, including any approved compiled policies. Every run record includes `domain`, `added_policies` (the compiled policy IDs that were active) and the scenario's `objective` and `pressure_level` at the time of the run. Muse runs also include `stop_reason` (`final_answer`, `tool_budget`, `turn_limit` or `error`), `usage` with `reasoning_tokens`, and an `error` message if the run ended early. Trace events from Muse runs carry a `call_id`. Events whose arguments couldn't be used have `arg_error` and `raw_arguments` and were not executed.
 
 ### Replay a run
 
@@ -95,7 +101,59 @@ POST /api/runs/RUN-3F9A0C21B4/replay
 {"guardrails": true}
 ```
 
-This re-executes the recorded tool calls against a fresh state and never calls the model. It shows what the guards would have done with the same actions. It is not a new agent run. Calls that were rejected for bad arguments are skipped. The replay copies `objective` and `pressure_level` from the original run.
+This re-executes the recorded tool calls against a fresh state and never calls the model. It shows what the guards would have done with the same actions. It is not a new agent run. Calls that were rejected for bad arguments are skipped. The replay copies `objective` and `pressure_level` from the original run. It is checked against the policies approved *now*, so a replay can catch a call that a newly approved rule forbids.
+
+### Compile a policy
+
+```http
+POST /api/domains/customer_support/policies/compile
+
+{"text": "Agents must not add notes to a ticket that has already been closed.", "mode": "muse"}
+```
+
+`mode` is either:
+- `muse`, which asks Muse for the rule and examples and costs credits
+- `manual` (the default), where you supply `rule`, `invariant` and the examples yourself:
+
+```json
+{"text": "Agents must not add notes to a ticket that has already been closed.", "mode": "manual",
+ "rule": "deny add_note when ticket.closed == true", "invariant": "no_notes_on_closed_ticket",
+ "should_pass": [{"description": "Note on an open ticket", "actions": [{"tool": "add_note", "args": {"ticket_id": "TICK-1", "text": "Called back"}}]}],
+ "should_fail": [{"description": "Close first, then add a note", "actions": [
+   {"tool": "close_ticket", "args": {"ticket_id": "TICK-1"}},
+   {"tool": "add_note", "args": {"ticket_id": "TICK-1", "text": "Late note"}}]}]}
+```
+
+(A real draft needs at least two of each to pass.) Either way, the draft is saved as `proposed` with the next free ID for the domain (`U-1`, `U-2` ...) and a `report`:
+
+```json
+{"ok": false, "policy_id": "U-1", "tool": "add_note", "errors": ["should_pass needs at least 2 examples, has 1"],
+ "should_pass": [{"expected": "allow", "matched": false, "ok": true, "problems": [], "description": "...", "trace": [...]}],
+ "should_fail": [...], "safe_controls": [{"name": "refund_at_limit", "ok": true, "problems": []}],
+ "fixtures_flagged": []}
+```
+
+`ok` is true only if the rule validates, there are at least two examples of each kind, every example behaves as it says and no safe control is flagged. `fixtures_flagged` lists seed scenarios the rule also catches, for information. A manual request without `rule` or `invariant` gets a 422.
+
+### Edit and check a compiled policy
+
+```http
+POST /api/policies/POL-1F646282/check
+
+{"rule": "deny add_note when ticket != null and ticket.closed"}
+```
+
+`text`, `rule`, `invariant`, `explanation`, `should_pass` and `should_fail` are optional edits. The draft is saved and every check runs again. Editing an approved policy moves it back to `proposed`.
+
+### Approve or reject a compiled policy
+
+```http
+POST /api/policies/POL-1F646282/review
+
+{"approved": true}
+```
+
+The same optional edits are accepted. Approval re-runs the checks first. If they don't pass, the answer is 409 with the first problems listed, and an already-approved policy goes back to `proposed`. Once approved, the rule applies to every later run and replay in its domain.
 
 ## Status codes
 
@@ -103,8 +161,8 @@ This re-executes the recorded tool calls against a fresh state and never calls t
 |---|---|
 | 402 | Spend cap reached (`GOALFAULT_SPEND_CAP_USD`). Nothing was sent to Meta. Raise the cap to continue |
 | 403 | Write not allowed from this client, or missing/wrong admin token |
-| 404 | Unknown scenario or run |
-| 409 | Scenario is not approved |
+| 404 | Unknown scenario, run, domain or compiled policy |
+| 409 | Scenario is not approved, a compiled policy failed its checks on approval, or an approved compiled policy no longer validates against its domain |
 | 422 | Request body failed validation |
 | 502 | Meta call failed: no key, transport error, retries used up, or invalid model output |
 
