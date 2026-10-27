@@ -28,6 +28,12 @@ def test_true_is_not_one():
     assert ev("count(state.approvals, item.verified == true)")==1
     assert not ev("1 == true") and ev("1 != true") and ev("1 == 1.0")
 
+def test_true_is_not_one_inside_lists_and_objects():
+    assert not ev("[true] == [1]") and ev("[true] != [1]") and ev("[1, [true]] == [1.0, [true]]")
+    assert not ev("[[true]] == [[1]]") and not ev("[1] == [1, 1]")
+    assert not ev("args.a == args.b",a={"x":True},b={"x":1}) and ev("args.a == args.b",a={"x":[1]},b={"x":[1.0]})
+    assert not ev("[1] in [[true]]") and ev("[true] in [[true]]")
+
 def test_collection_functions():
     assert ev("exists(state.approvals, item.order_id == args.id and item.verified == true and item.max_amount >= 150)",id="ORD-1")
     assert not ev("exists(state.approvals, item.order_id == args.id and item.verified == true)",id="ORD-2")
