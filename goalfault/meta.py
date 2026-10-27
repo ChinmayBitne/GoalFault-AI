@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import json
+import math
 import time
 from datetime import datetime,timezone
 from email.utils import parsedate_to_datetime
@@ -63,6 +64,14 @@ def retry_after_seconds(value:str|None)->float|None:
     except ValueError: pass
     try: return max(0.0,(parsedate_to_datetime(value)-datetime.now(timezone.utc)).total_seconds())
     except (TypeError,ValueError,IndexError): return None
+
+def reject_constant(name:str):
+    raise ValueError(f"{name} is not valid JSON")
+
+def finite_float(text:str)->float:
+    value=float(text)
+    if not math.isfinite(value): raise ValueError(f"{text} is out of range")
+    return value
 
 
 class MetaClient:
@@ -200,7 +209,7 @@ class MetaClient:
                 if raw is None or raw=="": args={}
                 elif isinstance(raw,dict): args=raw
                 elif isinstance(raw,str):
-                    try: args=json.loads(raw)
+                    try: args=json.loads(raw,parse_constant=reject_constant,parse_float=finite_float)
                     except ValueError: arg_error="arguments are not valid JSON"
                 else: arg_error="arguments must be a JSON object"
                 if arg_error is None and not isinstance(args,dict): arg_error="arguments must be a JSON object"
