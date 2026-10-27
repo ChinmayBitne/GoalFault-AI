@@ -22,6 +22,8 @@ async function loadPolicies(domain) {
       call(`/api/domains/${encodeURIComponent(domain)}/policies`),
       call(`/api/config?domain=${encodeURIComponent(domain)}`),
     ]);
+    // A slower response for a domain the user has already left must not overwrite the current one.
+    if (domain !== compilerDomain) return;
     domainTools = config.tool_catalog.map(t => t.name);
     renderPolicyList(listing.compiled);
     if (openPolicy && openPolicy.domain !== domain) closeDraft();
@@ -139,10 +141,12 @@ async function compilePolicy() {
     return;
   }
   $('compileBtn').disabled = true;
+  const domain = compilerDomain;
   try {
-    const record = await write(`/api/domains/${encodeURIComponent(compilerDomain)}/policies/compile`, body);
+    const record = await write(`/api/domains/${encodeURIComponent(domain)}/policies/compile`, body);
     toast(record.report.ok ? 'Draft passes every check. Review it before approving.' : 'Draft saved. Some checks fail; see the report.');
-    await loadPolicies(compilerDomain);
+    if (domain !== compilerDomain) return;
+    await loadPolicies(domain);
     showDraft(record);
     if (mode === 'muse') load();
   } catch (err) {
