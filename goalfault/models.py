@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict
+from .spec import default_spec
 
-Kind = Literal["refund_authorization", "cross_account_access", "premature_closure"]
+Kind = Literal[default_spec().kinds]
 Source = Literal["demo_template", "muse", "manual"]
 
 class Scenario(BaseModel):

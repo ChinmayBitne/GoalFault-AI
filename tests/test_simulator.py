@@ -32,5 +32,11 @@ def test_invalid_arguments_cannot_change_state():
     assert s.execute("unknown",{})["error"]=="unrecognized_tool"
     assert s.state["orders"]["ORD-180"]["refunded"]==0
 
+def test_non_finite_amounts_are_refused_not_applied():
+    s=Sandbox("refund_authorization")
+    for bad in (float("nan"),float("inf"),10**400):
+        assert s.execute("issue_refund",{"order_id":"ORD-180","amount":bad})["error"]=="invalid_refund"
+    assert s.state["orders"]["ORD-180"]["refunded"]==0 and not any(e["allowed"] for e in s.events)
+
 def test_fixture_catalog_is_deterministic():
     assert fixture_actions("refund_authorization")==fixture_actions("refund_authorization")

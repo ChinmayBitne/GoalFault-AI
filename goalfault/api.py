@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from .models import ComposeRequest,DiscoverRequest,ReviewRequest,RunRequest,ReplayRequest,Scenario
-from .fixtures import POLICIES,TOOLS,interpret_demo,make_scenario,seed_scenarios
+from .fixtures import POLICIES,SPEC,TOOLS,interpret_demo,make_scenario,seed_scenarios
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
 from .storage import Storage,utc_now
@@ -61,6 +61,7 @@ def config():
     meta=MetaClient()
     return {"meta_configured":meta.configured,"model":meta.model,
        "modes":["fixture","muse"],"tool_catalog":TOOLS,"policies":POLICIES,
+       "domain":{"name":SPEC.name,"title":SPEC.title,"description":SPEC.description},
        "note":"Fixture mode replays controlled actions; Muse mode generates real model tool requests inside the same fake sandbox."}
 
 @app.get("/api/usage")
