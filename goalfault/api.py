@@ -9,9 +9,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from .models import ComposeRequest,DiscoverRequest,ReviewRequest,RunRequest,ReplayRequest,Scenario
-from .fixtures import POLICIES,SPEC,TOOLS,interpret_demo,make_scenario,seed_scenarios
+from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
+from .quality import domain_quality
+from .spec import DEFAULT_DOMAIN,DomainSpec,UnknownDomain,get_spec,registry
 from .storage import Storage,utc_now
 
 load_dotenv()
@@ -39,6 +41,18 @@ def get_scenario_or_404(id:str)->Scenario:
     return scenario
 
 
+def domain_spec(name:str)->DomainSpec:
+    try: return get_spec(name)
+    except UnknownDomain: raise HTTPException(404,f"Unknown domain {name!r}") from None
+
+
+def domain_summary(spec:DomainSpec)->dict:
+    quality=domain_quality(spec.name)
+    return {"name":spec.name,"title":spec.title,"description":spec.description,"default_objective":spec.default_objective,
+            "tools":len(spec.tools),"policies":len(spec.policies),"scenarios":len(spec.scenarios),
+            "safe_controls":len(spec.safe_controls),"quality":{"passed":quality["passed"],"checks":quality["checks"]}}
+
+
 def require_write(request:Request):
     token=os.getenv("GOALFAULT_ADMIN_TOKEN","")
     # Local-only development without a token. Do not interpret forwarded headers as trust.
@@ -57,12 +71,19 @@ def index(): return FileResponse(ROOT/"web"/"index.html")
 def health(): return {"status":"ok","name":"GoalFault AI","version":"0.1.0"}
 
 @app.get("/api/config")
-def config():
+def config(domain:str=DEFAULT_DOMAIN):
     meta=MetaClient()
+    spec=domain_spec(domain)
     return {"meta_configured":meta.configured,"model":meta.model,
-       "modes":["fixture","muse"],"tool_catalog":TOOLS,"policies":POLICIES,
-       "domain":{"name":SPEC.name,"title":SPEC.title,"description":SPEC.description},
+       "modes":["fixture","muse"],"tool_catalog":tool_catalog(spec),"policies":policy_catalog(spec),
+       "domain":{"name":spec.name,"title":spec.title,"description":spec.description,"default_objective":spec.default_objective},
        "note":"Fixture mode replays controlled actions; Muse mode generates real model tool requests inside the same fake sandbox."}
+
+@app.get("/api/domains")
+def domains(include_hidden:bool=False):
+    """Domains that pass the quality bar; hidden ones only on request, with the checks they fail."""
+    found=[domain_summary(spec) for spec in registry().values()]
+    return [d for d in found if include_hidden or d["quality"]["passed"]]
 
 @app.get("/api/usage")
 def usage():
@@ -74,38 +95,43 @@ def usage():
         "rates_usd_per_million":price_rates(),"recent":summary["recent"]}
 
 @app.get("/api/scenarios")
-def scenarios(): return [s.model_dump() for s in database().list_scenarios()]
+def scenarios(domain:str|None=None):
+    if domain is not None: domain_spec(domain)
+    return [s.model_dump() for s in database().list_scenarios(domain)]
 
-def save_proposal(proposal,source:str,client:MetaClient|None,usage:dict,mode:str)->dict:
-    scenario=make_scenario(proposal,source)
+def save_proposal(proposal,source:str,client:MetaClient|None,usage:dict,mode:str,spec:DomainSpec)->dict:
+    scenario=make_scenario(proposal,source,spec)
     database().save_scenario(scenario)
     if client and client.usage_ids: database().link_usage(client.usage_ids,scenario.id)
     return {"scenario":scenario.model_dump(),"usage":usage,"estimated_model_cost_usd":estimate_cost(usage),"generation_mode":mode}
 
 @app.post("/api/scenarios/compose",dependencies=[Depends(require_write)])
 def compose(req:ComposeRequest):
+    spec=domain_spec(req.domain)
     client=None
     if req.mode=="muse":
         client=meta_client()
-        try: proposal,usage=client.propose(req.text)
+        try: proposal,usage=client.propose(req.text,spec=spec)
         except MetaError as e: raise meta_failure(e) from e
         source="muse"
     else:
-        proposal=interpret_demo(req.text)
+        proposal=interpret_demo(req.text,spec)
         usage={}
         source="demo_template"
-    return {**save_proposal(proposal,source,client,usage,req.mode),
-      "validation":"The kind is restricted to 3 simulated environments; approve and edit before any execution."}
+    return {**save_proposal(proposal,source,client,usage,req.mode,spec),
+      "validation":f"The kind is restricted to the {len(spec.kinds)} scenario kinds of {spec.title}; approve and edit before any execution."}
 
 @app.post("/api/scenarios/discover",dependencies=[Depends(require_write)])
 def discover(req:DiscoverRequest):
+    spec=domain_spec(req.domain)
     if req.mode=="muse":
         client=meta_client()
-        try: proposal,usage=client.discover()
+        try: proposal,usage=client.discover(spec)
         except MetaError as e: raise meta_failure(e) from e
-        return save_proposal(proposal,"muse",client,usage,req.mode)
+        return save_proposal(proposal,"muse",client,usage,req.mode,spec)
     # Sampled from a fixed catalog, not generated by a model.
-    scenario=seed_scenarios()[1].model_copy(update={"id":"GF-"+uuid4().hex[:8].upper()})
+    seeds=seed_scenarios(spec)
+    scenario=seeds[1%len(seeds)].model_copy(update={"id":"GF-"+uuid4().hex[:8].upper()})
     database().save_scenario(scenario)
     return {"scenario":scenario.model_dump(),"usage":{},"estimated_model_cost_usd":0,"generation_mode":req.mode}
 
@@ -124,21 +150,22 @@ def review(scenario_id:str,req:ReviewRequest):
 def run_scenario(scenario_id:str,req:RunRequest):
     s=get_scenario_or_404(scenario_id)
     if s.status!="approved": raise HTTPException(409,"Review and approve this scenario before running it")
+    spec=domain_spec(s.domain)
     run_id="RUN-"+uuid4().hex[:10].upper()
     if req.mode=="muse":
-        try: result,usage=meta_client().run_agent(s,req.guardrails,run_id=run_id)
+        try: result,usage=meta_client().run_agent(s,req.guardrails,run_id=run_id,spec=spec)
         except MetaError as e: raise meta_failure(e) from e
         kind="model_tool_calls"
     else:
-        result=fixture_run(s.kind,req.guardrails)
+        result=fixture_run(s.kind,req.guardrails,spec)
         usage={}
         kind="scripted_fixture"
-    run={"id":run_id,"scenario_id":s.id,
+    run={"id":run_id,"scenario_id":s.id,"domain":s.domain,
          "created_at":utc_now(),"kind":kind,"source":"muse" if req.mode=="muse" else "demo_fixture",
          "guardrails":req.guardrails,"objective":s.objective,"pressure_level":s.pressure_level,
          "usage":usage,"estimated_model_cost_usd":estimate_cost(usage),
          **result}
-    run["minimal_failing_actions"]=minimize_failure(s.kind,result["trace"]) if not req.guardrails else []
+    run["minimal_failing_actions"]=minimize_failure(s.kind,result["trace"],spec) if not req.guardrails else []
     database().save_run(run)
     return run
 
@@ -157,12 +184,13 @@ def replay(run_id:str,req:ReplayRequest):
     if not original: raise HTTPException(404,"Original run not found")
     scenario=get_scenario_or_404(original["scenario_id"])
     if scenario.status!="approved": raise HTTPException(409,"Scenario must remain approved")
-    result=replay_actions(scenario.kind,executable_actions(original["trace"]),req.guardrails)
-    r={"id":"RUN-"+uuid4().hex[:10].upper(),"scenario_id":scenario.id,"created_at":utc_now(),
+    spec=domain_spec(scenario.domain)
+    result=replay_actions(scenario.kind,executable_actions(original["trace"]),req.guardrails,spec)
+    r={"id":"RUN-"+uuid4().hex[:10].upper(),"scenario_id":scenario.id,"domain":scenario.domain,"created_at":utc_now(),
        "kind":"recorded_action_replay","source":"replay","guardrails":req.guardrails,
        "source_run_id":run_id,"objective":original.get("objective"),"pressure_level":original.get("pressure_level",0),
        "usage":{},"estimated_model_cost_usd":0,
        "note":"Replays recorded actions, not a second independent model decision; shows effect of tool-policy enforcement.",**result,
-       "minimal_failing_actions":[] if req.guardrails else minimize_failure(scenario.kind,result["trace"])}
+       "minimal_failing_actions":[] if req.guardrails else minimize_failure(scenario.kind,result["trace"],spec)}
     database().save_run(r)
     return r

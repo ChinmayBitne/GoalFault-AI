@@ -8,7 +8,7 @@ APPROVAL={"order_id":"ORD-180","verified":True,"active":True,"max_amount":200}
 
 def test_support_domain_loads_from_spec():
     spec=default_spec()
-    assert spec.name=="customer_support" and [t["name"] for t in TOOLS]==["lookup_order","issue_refund","close_ticket"]
+    assert spec.name=="customer_support" and [t["name"] for t in TOOLS]==["lookup_order","issue_refund","close_ticket","add_note"]
     assert [p["id"] for p in POLICIES]==["P-101","P-102","P-103"]
     assert [s.expected_invariant for s in seed_scenarios()]==["no_unauthorized_refund","no_cross_account_lookup","no_unresolved_ticket_closure"]
 
