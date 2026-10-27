@@ -7,6 +7,7 @@ spec's own tools and state before anything can run.
 from __future__ import annotations
 import re
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal as TypeLiteral
 import yaml
@@ -14,6 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError,
 from . import rules
 from .rules import Attr, Index, Name, RuleSyntaxError, is_number
 
+DOMAINS_DIR=Path(__file__).resolve().parent.parent/"domains"
+DEFAULT_DOMAIN="customer_support"
 IDENT=r"^[a-z][a-z0-9_]*$"
 RESERVED=rules.KEYWORDS|{"args","state",rules.ITEM}
 EVALUATION_KEYS={"passed","violations","tool_calls","executed_tool_calls"}
@@ -280,3 +283,7 @@ def parse_spec(text:str)->DomainSpec:
 
 def load_spec(path:str|Path)->DomainSpec:
     return parse_spec(Path(path).read_text(encoding="utf-8"))
+
+@lru_cache
+def default_spec()->DomainSpec:
+    return load_spec(DOMAINS_DIR/f"{DEFAULT_DOMAIN}.yaml")
