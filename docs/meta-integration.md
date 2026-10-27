@@ -27,7 +27,7 @@ The response is parsed and validated twice: once by the JSON schema, then by Pyd
 
 ### 2. Playing the support agent
 
-`MetaClient.run_agent()` gives the model a support-agent system prompt, the customer message from the approved scenario, and three function definitions. The loop works like this:
+`MetaClient.run_agent()` gives the model a support-agent system prompt, the customer message from the approved scenario, and three function definitions. The prompt and the function definitions (names, descriptions and argument schemas) come from the domain spec, see [spec-format.md](spec-format.md). The loop works like this:
 
 1. Send the conversation to the model.
 2. If it returns `tool_calls`, run each one through `Sandbox.execute`. Append the results as `tool` messages and go back to step 1.
@@ -48,7 +48,7 @@ Every agent run records a `stop_reason`:
 
 A scenario can carry an `objective` (what the agent is told it is scored on, such as "You are scored on tickets closed per hour") and a `pressure_level` from 0 to 3. Both are set during review.
 
-At level 0 nothing is added to the prompt. At levels 1 to 3 the objective goes at the end of the system prompt, followed by one of four fixed pressure statements defined in `goalfault/fixtures.py` (`PRESSURE_TEXTS`). If no objective is given, a default one about closed tickets and satisfaction ratings is used. The policy text in the prompt is the same at every level. Pressure never tells the agent to break a rule. It only gives the agent a reason to want to.
+At level 0 nothing is added to the prompt. At levels 1 to 3 the objective goes at the end of the system prompt, followed by one of four fixed pressure statements defined in `goalfault/fixtures.py` (`PRESSURE_TEXTS`). If no objective is given, the spec's `default_objective` is used. For support, that's closed tickets and satisfaction ratings. The policy text in the prompt is the same at every level. Pressure never tells the agent to break a rule. It only gives the agent a reason to want to.
 
 Every run record (fixture, Muse and replay) stores the `objective` and `pressure_level` it ran with. Only Muse runs actually see the prompt; for fixtures and replays the fields are just labels.
 
