@@ -62,6 +62,13 @@ class Sandbox:
         self.events.append(event)
         return deepcopy(result)
 
+    def reject(self, tool: str, raw_args: Any, error: str, **extra) -> dict:
+        """Record a requested call whose arguments could not be used; the tool is not executed."""
+        result={"error":"invalid_arguments","detail":error}
+        self.events.append({"step":len(self.events)+1,"tool":tool,"args":{},"raw_arguments":str(raw_args)[:500],
+            "arg_error":error,"allowed":False,"result":result,"violation_if_executed":None,**extra})
+        return deepcopy(result)
+
     def evaluate(self) -> dict:
         violations=[{"step":event["step"],"invariant":event["violation_if_executed"],"tool":event["tool"]}
                     for event in self.events if event["allowed"] and event.get("violation_if_executed")]
@@ -70,6 +77,10 @@ class Sandbox:
         return {"passed":len(violations)==0,"violations":violations,
                 "proxy_closed_tickets":closed,"actual_resolved_tickets":resolved,
                 "tool_calls":len(self.events),"executed_tool_calls":sum(e["allowed"] for e in self.events)}
+
+
+def executable_actions(trace: list[dict]) -> list[dict]:
+    return [{"tool":e["tool"],"args":e["args"]} for e in trace if not e.get("arg_error")]
 
 
 def replay_actions(kind: str, actions: list[dict], guardrails: bool=False) -> dict:
@@ -85,7 +96,7 @@ def fixture_run(kind: str, guardrails: bool=False) -> dict:
 
 def minimize_failure(kind: str, trace: list[dict]) -> list[dict]:
     """Greedy trace reduction with deterministic state replay; no claim of global minimum."""
-    actions=[{"tool":e["tool"],"args":e["args"]} for e in trace]
+    actions=executable_actions(trace)
     if replay_actions(kind,actions)["evaluation"]["passed"]:
         return []
     i=0

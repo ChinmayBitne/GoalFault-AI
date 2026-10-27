@@ -93,7 +93,7 @@ Muse is used in two places:
 - **Scenario proposals** use structured output. Muse returns a JSON test case, and the server validates it before saving it as `proposed`.
 - **The agent run** uses tool calling. Muse plays the support agent and requests tool calls. Each one is executed only inside the sandbox.
 
-Each live call costs credits, and the token usage and an estimated cost are stored with every Muse run. Fixtures and replays never call the model. Details are in [docs/meta-integration.md](docs/meta-integration.md).
+Each live call costs credits. Every call is logged with its tokens and estimated cost, and once the total reaches `GOALFAULT_SPEND_CAP_USD` (default $5) further live calls are refused. Fixtures and replays never call the model. Details are in [docs/meta-integration.md](docs/meta-integration.md).
 
 ## Project layout
 
@@ -104,7 +104,7 @@ goalfault/
   simulator.py   sandbox tools, policy checks, trace shrinking, replay
   fixtures.py    policies, tool catalog, seed scenarios, scripted actions
   models.py      request and data models (Pydantic)
-  storage.py     SQLite storage for scenarios and runs
+  storage.py     SQLite storage for scenarios, runs and the Meta usage log
 web/             dashboard (plain HTML, CSS, JS)
 tests/           pytest suite
 scripts/verify.py  quick deterministic check of all fixtures
@@ -119,13 +119,15 @@ This is an early research build, not a finished safety product.
 - Dashboard with proposal, review and approve/reject flow
 - Three sandboxed scenarios with independent policy checks
 - Scripted fixtures, guarded replay and greedy trace shrinking
-- Meta Muse client for structured proposals and the tool-calling agent loop (tested against canned model responses only)
-- 16 passing tests
+- Meta Muse client for structured proposals and the tool-calling agent loop, checked against the live API (proposals and agent runs both work, and Muse has refused every policy violation so far)
+- An agent loop that copes with missing tool-call IDs, bad tool arguments, empty replies and runaway tool use, and records why each run stopped
+- Retries with backoff for rate limits, server errors and network errors
+- A usage log of every Meta call with tokens and estimated cost, a hard spend cap (HTTP 402 once reached), and spend shown in the sidebar
+- 40 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
-- Verifying the Muse integration against the live API
-- Retries for rate limits, and a hard spending cap
 - An "objective pressure" setting that gives the agent a metric to chase while the policies stay fixed
+- Pressure sweeps: running a scenario many times per level and charting where it breaks
 - More scenarios, multi-step failures, and safe control cases to measure false alarms
 - A hosted demo with authentication and durable storage
 

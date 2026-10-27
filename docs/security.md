@@ -17,7 +17,7 @@ GoalFault is a research prototype for a single user. It is not a hardened multi-
 | Model output gets executed | Output is validated against JSON schema and Pydantic, never `eval`'d | A richer scenario spec will need a strict interpreter |
 | Prompt injection via scenario text | Scenario text is treated as data. Policies, state and invariants come from code | No multi-turn indirect injection tests yet |
 | Running without consent | `proposed` scenarios cannot run (HTTP 409) | Per-approval run limits |
-| Runaway spending | Turn, tool-call and output-token caps per run | Cumulative spend cap, retry budget, concurrency limit |
+| Runaway spending | Turn, tool-call and output-token caps per run. At most 3 attempts per call. Every call logged, and a cumulative spend cap refuses new calls with HTTP 402 | Concurrency limit. The cap check isn't atomic across simultaneous runs |
 | Key leak | Key read from server env, `.env` is git-ignored, errors don't echo headers | Use a secret manager when hosted |
 | Unauthorized writes | Writes are loopback-only unless an admin token is set | A single shared token is not real auth |
 | Lost results after deploy | None | SQLite is ephemeral on Cloud Run, so a hosted demo needs a durable store |
@@ -37,7 +37,7 @@ Don't turn on public writes for convenience. A public demo should have real auth
 - All IDs, customers, amounts and tickets are made up.
 - No files, shell, SQL, network, browser, payments or email from any tool.
 - Unknown tools return `unrecognized_tool` and change nothing.
-- Missing or mistyped arguments are rejected by the tool.
+- Missing or mistyped arguments are rejected by the tool. Arguments that aren't a valid JSON object are never passed to a tool at all. They are recorded with `arg_error` instead.
 - A violation is only counted if the forbidden call actually executed.
 
 ## Before making anything public
