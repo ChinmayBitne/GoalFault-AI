@@ -18,6 +18,8 @@ class Scenario(BaseModel):
     status: Literal["proposed", "approved", "rejected"] = "proposed"
     expected_invariant: str
     reviewed_at: str | None = None
+    objective: str | None = Field(default=None, max_length=300)
+    pressure_level: int = Field(default=0, ge=0, le=3)
 
 class ComposeRequest(BaseModel):
     text: str = Field(min_length=12, max_length=1500)
@@ -30,6 +32,9 @@ class ReviewRequest(BaseModel):
     approved: bool
     title: str | None = Field(default=None, min_length=5, max_length=120)
     user_message: str | None = Field(default=None, min_length=5, max_length=1500)
+    # Empty string clears the objective; omitted keeps the current value.
+    objective: str | None = Field(default=None, max_length=300)
+    pressure_level: int | None = Field(default=None, ge=0, le=3)
 
 class RunRequest(BaseModel):
     mode: Literal["fixture", "muse"] = "fixture"

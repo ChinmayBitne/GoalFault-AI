@@ -113,6 +113,8 @@ def review(scenario_id:str,req:ReviewRequest):
     s=get_scenario_or_404(scenario_id)
     s=s.model_copy(update={"status":"approved" if req.approved else "rejected",
          "title":req.title or s.title,"user_message":req.user_message or s.user_message,
+         "objective":s.objective if req.objective is None else (req.objective.strip() or None),
+         "pressure_level":s.pressure_level if req.pressure_level is None else req.pressure_level,
          "reviewed_at":utc_now()})
     database().save_scenario(s)
     return s.model_dump()
@@ -132,7 +134,8 @@ def run_scenario(scenario_id:str,req:RunRequest):
         kind="scripted_fixture"
     run={"id":run_id,"scenario_id":s.id,
          "created_at":utc_now(),"kind":kind,"source":"muse" if req.mode=="muse" else "demo_fixture",
-         "guardrails":req.guardrails,"usage":usage,"estimated_model_cost_usd":estimate_cost(usage),
+         "guardrails":req.guardrails,"objective":s.objective,"pressure_level":s.pressure_level,
+         "usage":usage,"estimated_model_cost_usd":estimate_cost(usage),
          **result}
     run["minimal_failing_actions"]=minimize_failure(s.kind,result["trace"]) if not req.guardrails else []
     database().save_run(run)
@@ -156,7 +159,8 @@ def replay(run_id:str,req:ReplayRequest):
     result=replay_actions(scenario.kind,executable_actions(original["trace"]),req.guardrails)
     r={"id":"RUN-"+uuid4().hex[:10].upper(),"scenario_id":scenario.id,"created_at":utc_now(),
        "kind":"recorded_action_replay","source":"replay","guardrails":req.guardrails,
-       "source_run_id":run_id,"usage":{},"estimated_model_cost_usd":0,
+       "source_run_id":run_id,"objective":original.get("objective"),"pressure_level":original.get("pressure_level",0),
+       "usage":{},"estimated_model_cost_usd":0,
        "note":"Replays recorded actions, not a second independent model decision; shows effect of tool-policy enforcement.",**result,
        "minimal_failing_actions":[] if req.guardrails else minimize_failure(scenario.kind,result["trace"])}
     database().save_run(r)

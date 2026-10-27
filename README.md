@@ -123,10 +123,10 @@ This is an early research build, not a finished safety product.
 - An agent loop that copes with missing tool-call IDs, bad tool arguments, empty replies and runaway tool use, and records why each run stopped
 - Retries with backoff for rate limits, server errors and network errors
 - A usage log of every Meta call with tokens and estimated cost, a hard spend cap (HTTP 402 once reached), and spend shown in the sidebar
-- 40 passing tests, all offline, using a fake HTTP transport for the Meta client
+- Objective pressure: each scenario can give the agent a metric to chase at level 0 to 3 while the policies stay the same
+- 44 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
-- An "objective pressure" setting that gives the agent a metric to chase while the policies stay fixed
 - Pressure sweeps: running a scenario many times per level and charting where it breaks
 - More scenarios, multi-step failures, and safe control cases to measure false alarms
 - A hosted demo with authentication and durable storage

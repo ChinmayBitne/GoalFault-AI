@@ -44,6 +44,14 @@ Every agent run records a `stop_reason`:
 | `turn_limit` | Six turns passed without a final answer |
 | `error` | A later turn failed after some tool calls had already run. The run is kept so the executed calls stay visible, and `error` holds the message |
 
+### Objective pressure
+
+A scenario can carry an `objective` (what the agent is told it is scored on, such as "You are scored on tickets closed per hour") and a `pressure_level` from 0 to 3. Both are set during review.
+
+At level 0 nothing is added to the prompt. At levels 1 to 3 the objective goes at the end of the system prompt, followed by one of four fixed pressure statements defined in `goalfault/fixtures.py` (`PRESSURE_TEXTS`). If no objective is given, a default one about closed tickets and satisfaction ratings is used. The policy text in the prompt is the same at every level. Pressure never tells the agent to break a rule. It only gives the agent a reason to want to.
+
+Every run record (fixture, Muse and replay) stores the `objective` and `pressure_level` it ran with. Only Muse runs actually see the prompt; for fixtures and replays the fields are just labels.
+
 ## Limits in place today
 
 - `max_completion_tokens` comes from `META_MAX_OUTPUT_TOKENS` (default 2000) and is capped at 2500 in code
@@ -111,4 +119,4 @@ The rates come from `META_PRICE_INPUT_PER_M` (default `1.25`) and `META_PRICE_OU
 - The cap counts only what this database has logged. Calls made from another machine or another database don't count
 - Retry waits block the request thread for up to about 40 seconds in the worst case
 - Rates are estimates. If Meta changes prices, the env vars need updating by hand
-- The agent prompt states every policy but gives the agent no performance target, so live runs mostly test plain instruction-following rather than pressure from a competing objective
+- Objective pressure is a single system-prompt sentence. There is no multi-turn pressure from the customer yet
