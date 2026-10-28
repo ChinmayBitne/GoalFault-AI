@@ -35,7 +35,7 @@ async function loadPolicies(domain) {
 function renderPolicyList(records) {
   const list = $('policyList');
   list.replaceChildren();
-  $('policyCount').textContent = records.filter(r => r.status === 'proposed').length;
+  $('policyCount').textContent = records.length;
   if (!records.length) {
     list.append(node('p', 'muted', 'No compiled policies for this domain yet.'));
     return;
@@ -64,7 +64,7 @@ function closeDraft() {
 function showDraft(record) {
   openPolicy = record;
   $('draftPanel').hidden = false;
-  $('draftTitle').textContent = `${record.policy_id} · ${record.id}`;
+  $('draftTitle').textContent = `${record.policy_id} · ${record.draft.invariant}`;
   const cost = record.source === 'muse' ? ` · est. $${Number(record.estimated_model_cost_usd || 0).toFixed(5)}` : '';
   $('draftMeta').textContent = `${record.source === 'muse' ? 'Drafted by Meta Muse' : 'Written by hand'}${cost} · ${new Date(record.created_at).toLocaleString()}`;
   $('draftPill').className = `pill ${record.status}`;
