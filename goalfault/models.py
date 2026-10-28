@@ -88,6 +88,13 @@ class CompileRequest(PolicyEdit):
 class PolicyReviewRequest(PolicyEdit):
     approved: bool
 
+class RepairRequest(BaseModel):
+    """A rule meant to block one stored failing trace. No model call."""
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=5, max_length=500)
+    rule: str = Field(min_length=5, max_length=MAX_RULE_LENGTH)
+    invariant: str = Field(pattern=IDENT, max_length=60)
+
 class ProposedScenario(BaseModel):
     """What a proposal returns. The kind is checked against the target domain by whoever asked for it."""
     model_config = ConfigDict(extra="forbid")

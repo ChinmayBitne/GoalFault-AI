@@ -10,9 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import ValidationError
-from .models import (ComposeRequest,CompileRequest,DiscoverRequest,PolicyEdit,PolicyReviewRequest,ReviewRequest,
-                     RunRequest,ReplayRequest,Scenario,SweepRequest)
-from .compiler import PolicyDraft,check_draft
+from .models import (ComposeRequest,CompileRequest,DiscoverRequest,PolicyEdit,PolicyReviewRequest,RepairRequest,
+                     ReviewRequest,RunRequest,ReplayRequest,Scenario,SweepRequest)
+from .compiler import PolicyDraft,check_draft,check_guard
 from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
@@ -273,6 +273,33 @@ def get_run(run_id:str):
     if not r:raise HTTPException(404,"Run not found")
     return r
 
+def failing_actions(run:dict)->list[dict]:
+    if run.get("minimal_failing_actions"): return run["minimal_failing_actions"]
+    return [{"tool":e["tool"],"args":e["args"]} for e in run["trace"]
+            if e.get("allowed") and e.get("violation_if_executed")]
+
+
+@app.post("/api/runs/{run_id}/repair",dependencies=[Depends(require_write)])
+def repair_run(run_id:str,req:RepairRequest):
+    """Save a rule that must block this run's failing trace and spare every safe control."""
+    run=database().get_run(run_id)
+    if not run: raise HTTPException(404,"Run not found")
+    if run["evaluation"]["passed"]: raise HTTPException(409,"This run has no violation to repair")
+    actions=failing_actions(run)
+    spec=effective_spec(run["domain"])
+    record={"id":"POL-"+uuid4().hex[:8].upper(),"domain":run["domain"],"policy_id":None,"status":"proposed",
+            "source":"repair","run_id":run["id"],"failing_actions":actions,"created_at":utc_now(),
+            "reviewed_at":None,"usage":{},"estimated_model_cost_usd":0,
+            "draft":{"text":req.text,"rule":req.rule,"invariant":req.invariant,"explanation":""}}
+    try: draft=PolicyDraft.model_validate(record["draft"])
+    except ValidationError as exc: raise HTTPException(422,f"Draft is invalid: {exc.errors()[0]['msg']}") from exc
+    with POLICY_ID_LOCK:
+        record["policy_id"]=next_policy_id(run["domain"])
+        record=recheck(record,draft)
+        database().save_policy(record)
+    return record
+
+
 @app.post("/api/runs/{run_id}/replay",dependencies=[Depends(require_write)])
 def replay(run_id:str,req:ReplayRequest):
     original=database().get_run(run_id)
@@ -316,7 +343,11 @@ def edited_draft(record:dict,edit:PolicyEdit)->PolicyDraft:
 def recheck(record:dict,draft:PolicyDraft)->dict:
     # Checked alongside the other approved rules for the domain, so clashes show up here.
     record["draft"]=draft.model_dump()
-    record["report"]=check_draft(effective_spec(record["domain"],exclude=record["id"]),draft,record["policy_id"])
+    spec=effective_spec(record["domain"],exclude=record["id"])
+    # shortcut: a repair is rechecked against its stored trace, not the example lists in the editor.
+    record["report"]=(check_guard(spec,draft,record["policy_id"],record["failing_actions"])
+                      if record.get("failing_actions") is not None
+                      else check_draft(spec,draft,record["policy_id"]))
     return record
 
 

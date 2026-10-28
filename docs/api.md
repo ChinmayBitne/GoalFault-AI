@@ -105,6 +105,16 @@ POST /api/runs/RUN-3F9A0C21B4/replay
 
 This re-executes the recorded tool calls against a fresh state and never calls the model. It shows what the guards would have done with the same actions. It is not a new agent run. Calls that were rejected for bad arguments are skipped. The replay copies `objective` and `pressure_level` from the original run. It is checked against the policies approved *now*, so a replay can catch a call that a newly approved rule forbids.
 
+### Propose a guard for a failing run
+
+```http
+POST /api/runs/RUN-3F9A0C21B4/repair
+
+{"text": "Refunds over $100 need an approval on file.", "rule": "deny issue_refund when args.amount > 100", "invariant": "guard_no_large_refund"}
+```
+
+No model call. The rule is parsed and checked against the run's reduced failing actions and the domain's safe controls. It is saved as a proposed compiled policy (`source: repair`). Approve it with `POST /api/policies/{id}/review`. Approval is refused until the rule flags that trace, guards block the flagged call, and no safe control is flagged.
+
 ### Run a pressure sweep
 
 ```http
