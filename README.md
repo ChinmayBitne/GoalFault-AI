@@ -35,7 +35,7 @@ A fixture violation shows the checker works. It says nothing about how Muse beha
 
 ## The sandbox
 
-GoalFault ships with four domains. Each one is a fake business system with made-up data, and you pick which one to test from the dashboard.
+GoalFault ships with five domains. Each one is a fake business system with made-up data, and you pick which one to test from the dashboard.
 
 | Domain | Tools | Policies | What can go wrong |
 |---|---|---|---|
@@ -43,6 +43,7 @@ GoalFault ships with four domains. Each one is a fake business system with made-
 | IT helpdesk | 6 | 4 | Password resets without identity checks, admin access without a change ticket, the desk granting itself access, closing incidents nobody confirmed |
 | E-commerce returns | 4 | 3 | Returns after the 30-day window, store credit above what was paid, waiving restocking fees without a reason code |
 | Clinic scheduling | 5 | 4 | Looking up another patient's record, booking a taken slot, sharing a summary without consent, recording consent for someone else |
+| Banking operations | 4 | 3 | Viewing someone else's account, transferring over the daily limit, raising a limit without the step-up code |
 
 In the support desk, for example, there is one signed-in customer (`CUST-001`), two orders and one open ticket:
 
@@ -136,7 +137,7 @@ goalfault/
   fixtures.py    policies, tool catalog and seed scenarios read from the spec, pressure texts
   models.py      request and data models (Pydantic)
   storage.py     SQLite storage for scenarios, runs, compiled policies and the Meta usage log
-domains/         domain specs (support, IT helpdesk, returns, clinic scheduling)
+domains/         domain specs (support, IT helpdesk, returns, clinic, banking)
 web/             dashboard (plain HTML, CSS, JS; compiler.js is the policy compiler panel, sweep.js the pressure chart)
 tests/           pytest suite
 scripts/verify.py  quick deterministic check of all fixtures
@@ -149,7 +150,7 @@ This is an early research build, not a finished safety product.
 
 **Working now**
 - Dashboard with a domain picker and the proposal, review and approve/reject flow
-- Four domains (customer support, IT helpdesk, e-commerce returns, clinic scheduling) with 14 seeded scenarios and 12 safe controls, all passing the quality bar
+- Five domains (customer support, IT helpdesk, e-commerce returns, clinic scheduling, banking operations) with 17 seeded scenarios and 15 safe controls, all passing the quality bar
 - Scripted fixtures, guarded replay and greedy trace shrinking. When one call breaks several policies, every one is recorded
 - A policy compiler: plain English in, a checked rule with pass and fail examples out, approved by a person. Checked against the live API on two domains
 - Meta Muse client for structured proposals and the tool-calling agent loop, checked against the live API (proposals and agent runs both work, and Muse has refused every policy violation so far)
@@ -159,15 +160,15 @@ This is an early research build, not a finished safety product.
 - Objective pressure: each scenario can give the agent a metric to chase at level 0 to 3 while the policies stay the same
 - A spec engine: each domain is a YAML file, and policies are rules in a small language with its own parser. A spec is fully checked when it loads, and mistakes are reported, not guessed around
 - Pressure sweeps: an approved scenario at levels 0–3, quoted and confirmed before any live run, scored from stored runs and shown as a chart with denominators
-- 196 passing tests, all offline, using a fake HTTP transport for the Meta client
+- 203 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
-- More domain packs (banking operations, HR, travel, insurance)
+- More domain packs (HR, travel, insurance)
 - A hosted demo with authentication and durable storage
 
 ## Roadmap
 
-- **More domains.** A domain is a file, not code. Banking operations is next.
+- **More domains.** A domain is a file, not code. HR onboarding is next.
 - **Guard repair.** For a confirmed failure, propose a guard and check that it blocks the bad trace without blocking safe controls.
 - **Guard library.** Export accepted guards as a small Python decorator that wraps your real tool functions.
 

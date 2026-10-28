@@ -95,5 +95,5 @@ The other domains are described in [scenarios.md](scenarios.md#other-domains).
 
 ## Where this is heading
 
-- more domain packs: banking operations, then HR, travel, insurance
+- more domain packs: HR onboarding, then travel and insurance
 - proposing a guard for a confirmed failure and checking it against the safe controls

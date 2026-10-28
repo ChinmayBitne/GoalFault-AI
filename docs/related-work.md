@@ -8,7 +8,7 @@ None of the underlying ideas are new: reward hacking, red-teaming agents, and ch
 4. The metric the agent is judged on is measured separately from the real outcome.
 5. Failing traces are shrunk and can be replayed with tool-level guards.
 
-Today the project has basic versions of 2, 3 and 5 across four domains and fourteen seed scenarios. Item 1 is wired up through Muse but hasn't been validated against the live API yet. Item 4 currently amounts to comparing closed tickets with resolved tickets.
+Today the project has basic versions of 2, 3 and 5 across five domains and seventeen seed scenarios. Item 1 is wired up through Muse but hasn't been validated against the live API yet. Item 4 currently amounts to comparing closed tickets with resolved tickets.
 
 ## Background
 
