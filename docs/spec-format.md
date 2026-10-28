@@ -2,7 +2,7 @@
 
 A domain is a YAML file in `domains/`. It describes the fake business system the agent works in: the starting data, the tools, the policies, the metrics and the test scenarios. The sandbox, the checker, the shrinker, replay and the Muse prompts all run from this file. There is no domain-specific Python.
 
-There are three domains today: `customer_support.yaml` (the original support desk), `it_helpdesk.yaml` and `ecommerce_returns.yaml`. Adding a domain means adding a file. The registry in `goalfault/spec.py` loads every `*.yaml` in the folder, and a broken file stops the server rather than being skipped. The registry also checks that:
+There are four domains today: `customer_support.yaml` (the original support desk), `it_helpdesk.yaml`, `ecommerce_returns.yaml` and `clinic_scheduling.yaml`. Adding a domain means adding a file. The registry in `goalfault/spec.py` loads every `*.yaml` in the folder, and a broken file stops the server rather than being skipped. The registry also checks that:
 
 - each spec's `name` matches its file name
 - no two domains produce the same seed scenario IDs (give each domain its own `code`)
