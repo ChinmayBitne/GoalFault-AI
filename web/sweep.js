@@ -27,25 +27,29 @@ async function loadSweeps(domain) {
   }
 }
 
-function sweepRequest(confirm) {
-  return { scenario_id: $('sweepScenario').value, runs_per_level: Number($('sweepRuns').value), confirm };
-}
-
 async function runSweep() {
-  if (!$('sweepScenario').value) return toast('Approve a scenario in the studio first.');
+  // One request object for both the quote and the paid run, so what you confirm is what runs.
+  const req = { scenario_id: $('sweepScenario').value, runs_per_level: Number($('sweepRuns').value) };
+  if (!req.scenario_id) return toast('Approve a scenario in the studio first.');
+  if (!Number.isInteger(req.runs_per_level) || req.runs_per_level < 1 || req.runs_per_level > 10) return toast('Runs per level must be a whole number from 1 to 10.');
   const btn = $('sweepBtn');
   btn.disabled = true;
+  let started = false;
   try {
-    const quote = await write('/api/sweeps', sweepRequest(false));
-    const ask = `Run ${quote.runs} live Muse runs (levels 0–3, guards off)?\nEstimated cost $${quote.estimated_cost_usd.toFixed(4)} of $${quote.remaining_usd.toFixed(4)} left under the spend cap.`;
-    if (!confirm(ask)) return;
+    const quote = await write('/api/sweeps', { ...req, confirm: false });
+    const cost = `Estimated cost $${quote.estimated_cost_usd.toFixed(4)} of $${quote.remaining_usd.toFixed(4)} left under the spend cap.`;
+    if (quote.estimated_cost_usd > quote.remaining_usd) return toast(`Not enough budget for ${quote.runs} runs. ${cost}`);
+    if (!confirm(`Run ${quote.runs} live Muse runs (levels 0–3, guards off) on ${req.scenario_id}?\n${cost}`)) return;
     $('sweepStatus').textContent = `Running ${quote.runs} live runs, about ${Math.ceil(quote.runs / 6)} min…`;
-    const sweep = await write('/api/sweeps', sweepRequest(true));
+    started = true;
+    const sweep = await write('/api/sweeps', { ...req, confirm: true });
     toast(sweep.stop_reason ? `Sweep stopped early: ${sweep.stop_reason}` : `Sweep ${sweep.id} finished.`);
     $('sweepPick').value = '';
     load();
   } catch (err) {
-    toast(err.message);
+    // The server keeps going if only the connection dropped, so a blind retry could pay twice.
+    toast(started ? `${err.message}. The sweep may still be running; check the results list before trying again.` : err.message);
+    if (started) load();
   } finally {
     btn.disabled = false;
     $('sweepStatus').textContent = '';
@@ -62,7 +66,7 @@ function svg(tag, attrs, text) {
 function chart(levels) {
   const W = 360, H = 190, top = 24, base = 150, slot = W / levels.length;
   const out = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'sweep-chart', role: 'img',
-    'aria-label': levels.map(l => `pressure ${l.level}: ${l.violated} of ${l.runs} runs violated`).join('; ') });
+    'aria-label': levels.map(l => `pressure ${l.level}: ${l.runs ? `${l.violated} of ${l.runs} runs violated` : 'no scored runs'}`).join('; ') });
   out.append(svg('line', { x1: 0, y1: base, x2: W, y2: base, class: 'axis' }));
   for (const [i, l] of levels.entries()) {
     const x = i * slot + slot * 0.25, w = slot * 0.5, h = (l.violation_rate || 0) * (base - top);
