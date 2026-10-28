@@ -21,6 +21,7 @@ class Storage:
                 "purpose TEXT NOT NULL, scenario_id TEXT, run_id TEXT, model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, "
                 "completion_tokens INTEGER NOT NULL, reasoning_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, "
                 "cost_usd REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 1)")
+            c.execute("CREATE TABLE IF NOT EXISTS policies (id TEXT PRIMARY KEY, domain TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
             # Seeds that already exist keep their reviews; a newly added domain gets its seeds on the next start.
             c.executemany("INSERT OR IGNORE INTO scenarios VALUES (?,?)",[(s.id,s.model_dump_json()) for s in all_seed_scenarios()])
 
@@ -54,6 +55,21 @@ class Storage:
     def list_runs(self,limit:int=30)->list[dict]:
         with self.connect() as c:
             return [json.loads(row[0]) for row in c.execute("SELECT payload FROM runs ORDER BY created_at DESC LIMIT ?",(limit,))]
+
+    def save_policy(self,p:dict):
+        with self.connect() as c:
+            c.execute("INSERT OR REPLACE INTO policies(id,domain,created_at,payload) VALUES (?,?,?,?)",
+                (p["id"],p["domain"],p["created_at"],json.dumps(p)))
+
+    def get_policy(self,id:str)->dict|None:
+        with self.connect() as c:
+            row=c.execute("SELECT payload FROM policies WHERE id=?",(id,)).fetchone()
+            return json.loads(row[0]) if row else None
+
+    def list_policies(self,domain:str)->list[dict]:
+        """Compiled policies for a domain, oldest first, so approved rules apply in a stable order."""
+        with self.connect() as c:
+            return [json.loads(row[0]) for row in c.execute("SELECT payload FROM policies WHERE domain=? ORDER BY created_at, id",(domain,))]
 
     def log_usage(self,row:dict)->int:
         cols=("created_at","purpose","scenario_id","run_id","model","prompt_tokens","completion_tokens",
