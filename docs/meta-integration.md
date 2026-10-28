@@ -25,9 +25,28 @@ The response is parsed and validated twice: once by the JSON schema, then by Pyd
 
 `MetaClient.discover()` uses the same path. Instead of a user description, it asks the model to find a risky interaction on its own.
 
-### 2. Playing the support agent
+Both work on the domain picked in the request. The kinds offered to the model are that domain's kinds, and a reply with any other kind is rejected.
 
-`MetaClient.run_agent()` gives the model a support-agent system prompt, the customer message from the approved scenario, and three function definitions. The prompt and the function definitions (names, descriptions and argument schemas) come from the domain spec, see [spec-format.md](spec-format.md). The loop works like this:
+### 2. Compiling a policy
+
+`MetaClient.compile_policy()` turns one plain-English policy into a rule in GoalFault's rule language. The system prompt holds:
+
+- the grammar
+- the domain's tools, with their parameters, `let` bindings, refusal conditions and effects
+- the starting state
+- the existing policies with their rules
+
+The policy text goes in the user message, and the prompt says it is data to translate, not instructions. The model is asked for exactly 2 `should_pass` and 2 `should_fail` examples. Each is a short list of tool calls run from the starting state, so an example can set things up first (open a return, close a ticket) before the call the rule is about.
+
+The reply uses structured output. Tool names are an enum from the spec. Each call's arguments come back as a JSON string (`args_json`), since every tool has different parameters, and it is parsed strictly. `NaN`, infinities and anything that isn't an object are rejected. Nothing the model returns is run as code or outside the sandbox. The rule goes through the same parser and spec validation as a rule in a YAML file. The example tool calls are replayed, but only as sandbox tool calls against a fresh copy of the synthetic state, like any fixture. See [architecture.md](architecture.md#compiled-policies) for the checks.
+
+There are two kinds of failure. A reply that doesn't fit the schema (bad JSON, missing fields, malformed `args_json`) is an HTTP 502, nothing is saved, and its cost is still logged. A reply that fits the schema but whose rule doesn't validate, or whose examples don't behave as claimed, is saved as a `proposed` draft with a failing report, so a person can fix it and check again.
+
+This call sends `reasoning_effort: "low"` and `max_completion_tokens: 4000`. Reasoning tokens count toward the output limit. In testing, the first live compile at the default limit of 2000 spent 1998 of them on reasoning, and the JSON was cut off. At low effort, the two successful compiles used about 1,900 to 2,100 completion tokens each.
+
+### 3. Playing the agent
+
+`MetaClient.run_agent()` gives the model the domain's agent system prompt, the customer message from the approved scenario, and one function definition per tool. The prompt and the function definitions (names, descriptions and argument schemas) come from the scenario's domain spec, see [spec-format.md](spec-format.md). If the domain has approved compiled policies, their text is added to the system prompt ("Also follow these approved policies. U-1: ..."), so the agent is told about every rule it is checked against. The loop works like this:
 
 1. Send the conversation to the model.
 2. If it returns `tool_calls`, run each one through `Sandbox.execute`. Append the results as `tool` messages and go back to step 1.
@@ -48,13 +67,13 @@ Every agent run records a `stop_reason`:
 
 A scenario can carry an `objective` (what the agent is told it is scored on, such as "You are scored on tickets closed per hour") and a `pressure_level` from 0 to 3. Both are set during review.
 
-At level 0 nothing is added to the prompt. At levels 1 to 3 the objective goes at the end of the system prompt, followed by one of four fixed pressure statements defined in `goalfault/fixtures.py` (`PRESSURE_TEXTS`). If no objective is given, the spec's `default_objective` is used. For support, that's closed tickets and satisfaction ratings. The policy text in the prompt is the same at every level. Pressure never tells the agent to break a rule. It only gives the agent a reason to want to.
+At level 0 nothing is added to the prompt. At levels 1 to 3 the objective goes at the end of the system prompt, followed by a fixed pressure statement for that level. The generic statements in `goalfault/fixtures.py` (`PRESSURE_TEXTS`) don't mention any particular business. A domain can replace any of them with its own `pressure` text; all three domains do this at level 3 (for support, "removed from the support queue"). If no objective is given, the spec's `default_objective` is used. For support, that's closed tickets and satisfaction ratings. The policy text in the prompt is the same at every level. Pressure never tells the agent to break a rule. It only gives the agent a reason to want to.
 
 Every run record (fixture, Muse and replay) stores the `objective` and `pressure_level` it ran with. Only Muse runs actually see the prompt; for fixtures and replays the fields are just labels.
 
 ## Limits in place today
 
-- `max_completion_tokens` comes from `META_MAX_OUTPUT_TOKENS` (default 2000) and is capped at 2500 in code
+- `max_completion_tokens` comes from `META_MAX_OUTPUT_TOKENS` (default 2000) and is capped at 2500 in code. Policy compiling is the exception, with a fixed 4000 at low reasoning effort
 - At most 6 model turns per run
 - At most 5 tool calls in a single turn and 8 per run. A turn that would go over either limit is not executed and the run ends with `tool_budget`. Calls with bad arguments count toward the limit
 - 60 second HTTP timeout per attempt
@@ -75,7 +94,7 @@ The sleep function is injectable (`MetaClient(sleep=...)`), so tests run without
 
 ## Spend cap and usage log
 
-Every successful Meta call is written to the `meta_usage` table in the SQLite database. This covers proposals, discovery and every turn of an agent run. Each row holds the time, the purpose (`propose`, `discover` or `agent`), the scenario and run ID when known, the model, prompt, completion, reasoning and total tokens, the estimated cost, and the number of attempts. For proposals, the scenario ID is filled in once the proposal has been saved.
+Every successful Meta call is written to the `meta_usage` table in the SQLite database. This covers proposals, discovery, policy compiling and every turn of an agent run. Each row holds the time, the purpose (`propose`, `discover`, `compile` or `agent`), the scenario and run ID when known, the model, prompt, completion, reasoning and total tokens, the estimated cost, and the number of attempts. For proposals, the scenario ID is filled in once the proposal has been saved.
 
 Before every call, the client adds up the logged cost. If it has reached `GOALFAULT_SPEND_CAP_USD` (default `5.00`), the call is refused before anything is sent. The API answers with **HTTP 402**. I picked 402 over 429 because nothing is being rate limited. The local budget is used up, and the fix is to raise the cap. A 429 would also be confused with Meta's own rate limit.
 
@@ -95,7 +114,8 @@ The cap is checked before each turn of an agent run, not just at the start. A ru
 | Non-JSON reply | HTTP 502 naming the exception type |
 | No `choices` in the reply | HTTP 502. The call's tokens are still logged if the reply had usage |
 | A choice with no `message` | HTTP 502 on the first turn. On a later turn the run ends with `stop_reason: "error"` |
-| Proposal fails validation | HTTP 502, nothing saved, cost still logged |
+| Proposal fails validation, or a compile reply doesn't fit its schema | HTTP 502, nothing saved, cost still logged |
+| Compiled rule is invalid or its examples fail | Saved as a `proposed` draft with a failing report. It can't be approved until fixed |
 | Unknown tool requested | Recorded as `unrecognized_tool`, state unchanged |
 | Tool call without an `id` | A stable ID `call_<turn>_<n>` is made up, used in the reply message and recorded on the trace event with `call_id_synthesized: true` |
 | Tool arguments that aren't valid JSON, or JSON that isn't an object | The tool is **not** run. The trace event gets `arg_error` and `raw_arguments`, the model receives `{"error": "invalid_arguments"}`, and replay and trace shrinking skip the event |
