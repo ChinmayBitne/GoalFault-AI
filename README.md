@@ -161,7 +161,8 @@ This is an early research build, not a finished safety product.
 - A spec engine: each domain is a YAML file, and policies are rules in a small language with its own parser. A spec is fully checked when it loads, and mistakes are reported, not guessed around
 - Pressure sweeps: an approved scenario at levels 0–3, quoted and confirmed before any live run, scored from stored runs and shown as a chart with denominators
 - Guard repair: from a failing run, a rule you write is checked against that trace and the domain's safe controls, then approved like any other compiled policy
-- 206 passing tests, all offline, using a fake HTTP transport for the Meta client
+- Guard export: `@guard("domains/x.yaml")` wraps a real function, raises `PolicyBlocked`, and keeps a decision log. `python -m scripts.guard_example` blocks the recorded $180 refund with no server
+- 207 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
 - More domain packs (HR, travel, insurance)
@@ -171,7 +172,6 @@ This is an early research build, not a finished safety product.
 
 - **More domains.** A domain is a file, not code. HR onboarding is next.
 - **Guard repair from Muse.** The check and the approval already work. Muse writing the rule is what's left.
-- **Guard library.** Export accepted guards as a small Python decorator that wraps your real tool functions.
 
 ## Safety
 
