@@ -35,6 +35,7 @@ The engine itself knows nothing about orders or tickets. A domain is a YAML spec
 | `goalfault/compiler.py` | Policy compiler: checks a draft rule and its examples, and builds the prompt and schema for Muse |
 | `goalfault/fixtures.py` | Policy list, tool catalog, seed scenarios and the offline keyword classifier, all read from the spec, plus the pressure texts |
 | `goalfault/simulator.py` | The generic `Sandbox`: runs tools and effects from the spec, checks policy rules, replay and greedy trace shrinking |
+| `goalfault/guard.py` | `@guard(path)` wraps ordinary functions with the policies in that YAML file. No server. Database-only approved rules are not included |
 | `domains/*.yaml` | One file per domain: starting state, tools, policies, metrics, scenarios, fixtures, safe controls and prompts |
 | `goalfault/meta.py` | `MetaClient`: chat completions, structured proposals, policy compiling, the agent loop |
 | `goalfault/storage.py` | SQLite tables for scenarios, runs, compiled policies and Meta usage |
