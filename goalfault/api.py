@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import ValidationError
 from .models import (ComposeRequest,CompileRequest,DiscoverRequest,PolicyEdit,PolicyReviewRequest,ReviewRequest,
-                     RunRequest,ReplayRequest,Scenario)
+                     RunRequest,ReplayRequest,Scenario,SweepRequest)
 from .compiler import PolicyDraft,check_draft
 from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
@@ -166,28 +166,103 @@ def review(scenario_id:str,req:ReviewRequest):
     database().save_scenario(s)
     return s.model_dump()
 
+def execute_run(s:Scenario,mode:str,guardrails:bool,**extra)->dict:
+    """Run an approved scenario once and store it. Raises MetaError for live runs that fail."""
+    spec=effective_spec(s.domain)
+    run_id="RUN-"+uuid4().hex[:10].upper()
+    if mode=="muse":
+        result,usage=meta_client().run_agent(s,guardrails,run_id=run_id,spec=spec)
+        kind="model_tool_calls"
+    else:
+        result=fixture_run(s.kind,guardrails,spec)
+        usage={}
+        kind="scripted_fixture"
+    run={"id":run_id,"scenario_id":s.id,"domain":s.domain,"added_policies":[p.id for p in spec.added_policies],
+         "created_at":utc_now(),"kind":kind,"source":"muse" if mode=="muse" else "demo_fixture",
+         "guardrails":guardrails,"objective":s.objective,"pressure_level":s.pressure_level,
+         "usage":usage,"estimated_model_cost_usd":estimate_cost(usage),**extra,
+         **result}
+    run["minimal_failing_actions"]=minimize_failure(s.kind,result["trace"],spec) if not guardrails else []
+    database().save_run(run)
+    return run
+
 @app.post("/api/scenarios/{scenario_id}/run",dependencies=[Depends(require_write)])
 def run_scenario(scenario_id:str,req:RunRequest):
     s=get_scenario_or_404(scenario_id)
     if s.status!="approved": raise HTTPException(409,"Review and approve this scenario before running it")
-    spec=effective_spec(s.domain)
-    run_id="RUN-"+uuid4().hex[:10].upper()
-    if req.mode=="muse":
-        try: result,usage=meta_client().run_agent(s,req.guardrails,run_id=run_id,spec=spec)
-        except MetaError as e: raise meta_failure(e) from e
-        kind="model_tool_calls"
-    else:
-        result=fixture_run(s.kind,req.guardrails,spec)
-        usage={}
-        kind="scripted_fixture"
-    run={"id":run_id,"scenario_id":s.id,"domain":s.domain,"added_policies":[p.id for p in spec.added_policies],
-         "created_at":utc_now(),"kind":kind,"source":"muse" if req.mode=="muse" else "demo_fixture",
-         "guardrails":req.guardrails,"objective":s.objective,"pressure_level":s.pressure_level,
-         "usage":usage,"estimated_model_cost_usd":estimate_cost(usage),
-         **result}
-    run["minimal_failing_actions"]=minimize_failure(s.kind,result["trace"],spec) if not req.guardrails else []
-    database().save_run(run)
-    return run
+    try: return execute_run(s,req.mode,req.guardrails)
+    except MetaError as e: raise meta_failure(e) from e
+
+# Fallback when no live run has been recorded yet; replaced by the real average once one exists.
+FIRST_RUN_ESTIMATE_USD=0.02
+
+def run_cost_estimate(domain:str)->float:
+    costs=[r["estimated_model_cost_usd"] for r in database().list_runs(200)
+           if r["source"]=="muse" and r.get("domain")==domain and not r["guardrails"]]
+    return sum(costs)/len(costs) if costs else FIRST_RUN_ESTIMATE_USD
+
+def metric_gap(evaluation:dict)->float|None:
+    """Proxy minus actual, for domains whose metrics come as a proxy_*/actual_* pair."""
+    proxy=next((v for k,v in evaluation.items() if k.startswith("proxy_")),None)
+    actual=next((v for k,v in evaluation.items() if k.startswith("actual_")),None)
+    return None if proxy is None or actual is None else proxy-actual
+
+def sweep_view(sweep:dict)->dict:
+    """Every number is recomputed from the stored runs, so the chart always matches the evidence."""
+    runs=[r for r in (database().get_run(i) for i in sweep["run_ids"]) if r]
+    levels=[]
+    for level in sweep["config"]["levels"]:
+        at=[r for r in runs if r["pressure_level"]==level]
+        # A violation before an error still happened; a run that errored without one proves nothing either way.
+        scored=[r for r in at if not r["evaluation"]["passed"] or r.get("stop_reason")!="error"]
+        gaps=[g for g in (metric_gap(r["evaluation"]) for r in scored) if g is not None]
+        violated=sum(not r["evaluation"]["passed"] for r in scored)
+        levels.append({"level":level,"runs":len(scored),"violated":violated,"errored":len(at)-len(scored),
+                       "violation_rate":violated/len(scored) if scored else None,
+                       "mean_metric_gap":sum(gaps)/len(gaps) if gaps else None,
+                       "run_ids":[r["id"] for r in at]})
+    return {**sweep,"levels":levels,"cost_usd":round(sum(r["estimated_model_cost_usd"] for r in runs),6)}
+
+@app.post("/api/sweeps",dependencies=[Depends(require_write)])
+def start_sweep(req:SweepRequest):
+    """Without confirm this only prices the sweep. With confirm it runs every live run in this request."""
+    s=get_scenario_or_404(req.scenario_id)
+    if s.status!="approved": raise HTTPException(409,"Review and approve this scenario before sweeping it")
+    config=req.model_dump(exclude={"confirm"})
+    total=len(req.levels)*req.runs_per_level
+    estimate=round(total*run_cost_estimate(s.domain),4)
+    remaining=round(max(spend_cap()-database().total_spend(),0),6)
+    if not req.confirm:
+        return {"config":config,"runs":total,"estimated_cost_usd":estimate,"remaining_usd":remaining}
+    if estimate>remaining:
+        raise HTTPException(402,f"Estimated ${estimate:.4f} is more than the ${remaining:.4f} left under the spend cap")
+    sweep={"id":"SWP-"+uuid4().hex[:8].upper(),"created_at":utc_now(),"scenario_id":s.id,"domain":s.domain,
+           "config":config,"estimated_cost_usd":estimate,"run_ids":[],"stop_reason":None}
+    # shortcut: runs synchronously in one request (about 10 s per run); move to a background job if sweeps grow past ~40 runs.
+    try:
+        # Level by level within each round, so an early stop leaves every level with a similar number of runs.
+        for _ in range(req.runs_per_level):
+            for level in req.levels:
+                run=execute_run(s.model_copy(update={"pressure_level":level}),"muse",False,sweep_id=sweep["id"])
+                sweep["run_ids"].append(run["id"])
+                database().save_sweep(sweep)
+    except MetaError as e:
+        sweep["stop_reason"]=str(e)
+    except Exception as e:
+        sweep["stop_reason"]=f"Stopped by an internal error: {type(e).__name__}"
+        database().save_sweep(sweep)
+        raise
+    database().save_sweep(sweep)
+    return sweep_view(sweep)
+
+@app.get("/api/sweeps")
+def sweeps(): return [sweep_view(s) for s in database().list_sweeps()]
+
+@app.get("/api/sweeps/{sweep_id}")
+def get_sweep(sweep_id:str):
+    s=database().get_sweep(sweep_id)
+    if not s: raise HTTPException(404,"Sweep not found")
+    return sweep_view(s)
 
 @app.get("/api/runs")
 def runs(): return database().list_runs()

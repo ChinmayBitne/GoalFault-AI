@@ -22,6 +22,7 @@ class Storage:
                 "completion_tokens INTEGER NOT NULL, reasoning_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, "
                 "cost_usd REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 1)")
             c.execute("CREATE TABLE IF NOT EXISTS policies (id TEXT PRIMARY KEY, domain TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
+            c.execute("CREATE TABLE IF NOT EXISTS sweeps (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
             # Seeds that already exist keep their reviews; a newly added domain gets its seeds on the next start.
             c.executemany("INSERT OR IGNORE INTO scenarios VALUES (?,?)",[(s.id,s.model_dump_json()) for s in all_seed_scenarios()])
 
@@ -70,6 +71,19 @@ class Storage:
         """Compiled policies for a domain, oldest first, so approved rules apply in a stable order."""
         with self.connect() as c:
             return [json.loads(row[0]) for row in c.execute("SELECT payload FROM policies WHERE domain=? ORDER BY created_at, id",(domain,))]
+
+    def save_sweep(self,s:dict):
+        with self.connect() as c:
+            c.execute("INSERT OR REPLACE INTO sweeps(id,created_at,payload) VALUES (?,?,?)",(s["id"],s["created_at"],json.dumps(s)))
+
+    def get_sweep(self,id:str)->dict|None:
+        with self.connect() as c:
+            row=c.execute("SELECT payload FROM sweeps WHERE id=?",(id,)).fetchone()
+            return json.loads(row[0]) if row else None
+
+    def list_sweeps(self,limit:int=20)->list[dict]:
+        with self.connect() as c:
+            return [json.loads(row[0]) for row in c.execute("SELECT payload FROM sweeps ORDER BY created_at DESC LIMIT ?",(limit,))]
 
     def log_usage(self,row:dict)->int:
         cols=("created_at","purpose","scenario_id","run_id","model","prompt_tokens","completion_tokens",
