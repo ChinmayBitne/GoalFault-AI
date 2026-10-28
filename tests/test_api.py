@@ -190,6 +190,16 @@ def test_repair_refuses_a_rule_that_flags_a_safe_control(client):
     assert not saved["report"]["ok"] and any(not c["ok"] for c in saved["report"]["safe_controls"])
     assert client.post(f"/api/policies/{saved['id']}/review",json={"approved":True}).status_code==409
 
+def test_muse_repair_checks_the_model_rule(client,monkeypatch):
+    run=failing_refund(client)
+    assert client.post(f"/api/runs/{run['id']}/repair",json={"text":"Block the recorded failing trace.","mode":"manual"}).status_code==422
+    reply={"rule":REFUND_GUARD,"invariant":"guard_no_large_refund","explanation":"Amount over 100 with no matching approval."}
+    sent=fake_meta(monkeypatch,[{"choices":[{"message":{"content":json.dumps(reply)}}],"usage":USAGE}])
+    saved=client.post(f"/api/runs/{run['id']}/repair",json={"text":"Block the recorded failing trace.","mode":"muse"}).json()
+    assert saved["report"]["ok"] and saved["source"]=="repair" and saved["estimated_model_cost_usd"]>0
+    assert sent[0]["response_format"]["json_schema"]["name"]=="goalfault_repair"
+    assert "180" in sent[0]["messages"][0]["content"]
+
 def test_repair_needs_a_violation(client):
     run=failing_refund(client)
     replay=client.post(f"/api/runs/{run['id']}/replay",json={"guardrails":True}).json()

@@ -7,7 +7,8 @@ from datetime import datetime,timezone
 from email.utils import parsedate_to_datetime
 import httpx
 from pydantic import ValidationError
-from .compiler import PolicyDraft, compile_messages, compile_schema, draft_from_model
+from .compiler import (PolicyDraft, compile_messages, compile_schema, draft_from_model,
+                       draft_from_repair, repair_messages, repair_schema)
 from .models import ProposedScenario
 from .fixtures import policy_catalog, pressure_prompt, tool_catalog
 from .simulator import Sandbox
@@ -176,6 +177,17 @@ class MetaClient:
             draft=draft_from_model(json.loads(resp["choices"][0]["message"]["content"]),policy_text)
         except (ValueError,TypeError,KeyError,IndexError,AttributeError,ValidationError) as exc:
             raise MetaError("Model response did not validate against the policy schema") from exc
+        return draft,usage_counts(resp.get("usage"))
+
+    def repair_policy(self,policy_text:str,actions:list[dict],spec:DomainSpec)->tuple[PolicyDraft,dict]:
+        """Ask Muse for a rule for one failing trace. The reply is only parsed; checking it is the caller's job."""
+        resp=self.completion(repair_messages(spec,policy_text,actions),purpose="repair",
+          reasoning_effort=COMPILE_REASONING_EFFORT,max_completion_tokens=COMPILE_MAX_OUTPUT,
+          response_format={"type":"json_schema","json_schema":{"name":"goalfault_repair","schema":repair_schema()}})
+        try:
+            draft=draft_from_repair(json.loads(resp["choices"][0]["message"]["content"]),policy_text)
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError,ValidationError) as exc:
+            raise MetaError("Model response did not validate against the repair schema") from exc
         return draft,usage_counts(resp.get("usage"))
 
     def run_agent(self,scenario,guardrails:bool=False,run_id:str|None=None,spec:DomainSpec|None=None)->tuple[dict,dict]:
