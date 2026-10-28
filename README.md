@@ -160,7 +160,8 @@ This is an early research build, not a finished safety product.
 - Objective pressure: each scenario can give the agent a metric to chase at level 0 to 3 while the policies stay the same
 - A spec engine: each domain is a YAML file, and policies are rules in a small language with its own parser. A spec is fully checked when it loads, and mistakes are reported, not guessed around
 - Pressure sweeps: an approved scenario at levels 0–3, quoted and confirmed before any live run, scored from stored runs and shown as a chart with denominators
-- 203 passing tests, all offline, using a fake HTTP transport for the Meta client
+- Guard repair: from a failing run, a rule you write is checked against that trace and the domain's safe controls, then approved like any other compiled policy
+- 206 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
 - More domain packs (HR, travel, insurance)
@@ -169,7 +170,7 @@ This is an early research build, not a finished safety product.
 ## Roadmap
 
 - **More domains.** A domain is a file, not code. HR onboarding is next.
-- **Guard repair.** For a confirmed failure, propose a guard and check that it blocks the bad trace without blocking safe controls.
+- **Guard repair from Muse.** The check and the approval already work. Muse writing the rule is what's left.
 - **Guard library.** Export accepted guards as a small Python decorator that wraps your real tool functions.
 
 ## Safety

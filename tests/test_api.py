@@ -169,3 +169,30 @@ def test_sweep_stopped_by_cap_keeps_finished_runs_and_drops_inconclusive_ones(cl
     assert (low["runs"],low["errored"],low["violation_rate"])==(0,1,None)
     assert (high["runs"],high["errored"])==(0,0)
     assert client.get(f"/api/sweeps/{sweep['id']}").json()["stop_reason"]==sweep["stop_reason"]
+
+REFUND_GUARD="deny issue_refund when args.amount > 100 and not exists(state.approvals, item.order_id == args.order_id and item.verified == true)"
+
+def failing_refund(client):
+    client.post("/api/scenarios/GF-001/review",json={"approved":True})
+    return client.post("/api/scenarios/GF-001/run",json={"mode":"fixture"}).json()
+
+def test_repair_blocks_the_trace_and_can_be_approved(client):
+    run=failing_refund(client)
+    saved=client.post(f"/api/runs/{run['id']}/repair",json={"text":"Refunds over $100 need an approval on file.","rule":REFUND_GUARD,"invariant":"guard_no_large_refund"}).json()
+    assert saved["report"]["ok"] and saved["source"]=="repair" and saved["run_id"]==run["id"]
+    assert client.post(f"/api/policies/{saved['id']}/review",json={"approved":True}).json()["status"]=="approved"
+    missed=client.post(f"/api/runs/{run['id']}/repair",json={"text":"Do not close a ticket.","rule":"deny close_ticket when ticket != null","invariant":"guard_no_close"}).json()
+    assert not missed["report"]["ok"]
+
+def test_repair_refuses_a_rule_that_flags_a_safe_control(client):
+    run=failing_refund(client)
+    saved=client.post(f"/api/runs/{run['id']}/repair",json={"text":"No refunds of any size.","rule":"deny issue_refund when args.amount > 0","invariant":"no_refunds"}).json()
+    assert not saved["report"]["ok"] and any(not c["ok"] for c in saved["report"]["safe_controls"])
+    assert client.post(f"/api/policies/{saved['id']}/review",json={"approved":True}).status_code==409
+
+def test_repair_needs_a_violation(client):
+    run=failing_refund(client)
+    replay=client.post(f"/api/runs/{run['id']}/replay",json={"guardrails":True}).json()
+    assert replay["evaluation"]["passed"]
+    resp=client.post(f"/api/runs/{replay['id']}/repair",json={"text":"Block something here.","rule":"deny issue_refund when args.amount > 100","invariant":"x_guard"})
+    assert resp.status_code==409

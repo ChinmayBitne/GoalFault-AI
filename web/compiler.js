@@ -47,7 +47,7 @@ function renderPolicyList(records) {
     card.append(head, node('p', '', r.draft.text), node('code', 'rule-code', r.draft.rule));
     const tags = node('div', 'scenario-tags');
     tags.append(node('span', `pill ${r.report.ok ? 'passed' : 'failed'}`, r.report.ok ? 'checks pass' : 'checks fail'));
-    tags.append(node('span', 'pill neutral', r.source === 'muse' ? 'Muse drafted' : 'Written by hand'));
+    tags.append(node('span', 'pill neutral', r.source === 'muse' ? 'Muse drafted' : r.source === 'repair' ? 'From a failing run' : 'Written by hand'));
     card.append(tags);
     const actions = node('div', 'scenario-actions');
     actions.append(button(r.status === 'approved' ? 'View' : 'Review', () => showDraft(r), 'tiny-btn callout'));

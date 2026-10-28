@@ -97,6 +97,45 @@ def check_draft(spec:DomainSpec,draft:PolicyDraft,policy_id:str)->dict:
     return report
 
 
+def check_guard(spec:DomainSpec,draft:PolicyDraft,policy_id:str,actions:list[dict])->dict:
+    """A repair rule must flag the stored failing trace, and guards must block that call.
+
+    Safe controls must stay unflagged. An earlier policy may be what returns policy_blocked;
+    this still requires the new rule to match the same call.
+    """
+    report={"ok":False,"policy_id":policy_id,"tool":None,"errors":[],"should_pass":[],"should_fail":[],
+            "safe_controls":[],"fixtures_flagged":[]}
+    try:
+        candidate=spec.with_policies([{"id":policy_id,"text":draft.text,"invariant":draft.invariant,"rule":draft.rule}])
+    except SpecError as exc:
+        report["errors"]=spec_problems(exc)
+        return report
+    report["tool"]=rules.parse_rule(draft.rule).tool
+    problems=[]
+    if not actions:
+        problems.append("this run has no failing actions")
+        trace=[]
+    else:
+        bare=replay_actions("guard_repair",actions,spec=candidate)["trace"]
+        guarded=replay_actions("guard_repair",actions,True,candidate)["trace"]
+        trace=short_trace(bare)
+        hits=[e for e in bare if e["allowed"] and policy_id in [m["policy"] for m in e["matched_policies"]]]
+        blocked={e["step"] for e in guarded if e["result"].get("error")=="policy_blocked"}
+        if not hits:
+            problems.append("the rule does not flag the failing trace")
+        elif not any(e["step"] in blocked for e in hits):
+            problems.append("guards do not block the call the rule flags")
+    report["should_fail"]=[{"expected":"deny","matched":not problems,"ok":not problems,"problems":problems,
+                            "description":"recorded failing trace","trace":trace}]
+    for control in spec.safe_controls:
+        result=replay_actions(control.name,[a.model_dump() for a in control.actions],spec=candidate)
+        hit=[e["step"] for e in result["trace"] if e["allowed"] and policy_id in [m["policy"] for m in e["matched_policies"]]]
+        report["safe_controls"].append({"name":control.name,"ok":not hit,
+            "problems":[f"the rule flags step {s} of this legitimate workflow" for s in hit]})
+    report["ok"]=not problems and all(c["ok"] for c in report["safe_controls"])
+    return report
+
+
 # What Muse sees and returns.
 
 GRAMMAR="""Rule language (our own parser; nothing else is accepted):
