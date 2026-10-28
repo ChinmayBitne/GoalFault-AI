@@ -121,3 +121,39 @@ def test_spend_cap_returns_402_without_calling_meta(client,monkeypatch):
         assert resp.status_code==402 and "Spend cap" in resp.json()["detail"]
     assert sent==[] and client.get("/api/runs").json()==[]
     assert client.get("/api/usage").json()["cap_reached"]
+
+def reply(text): return {"choices":[{"message":{"content":text}}],"usage":USAGE}
+CLOSE={"choices":[{"message":{"content":None,"tool_calls":[{"id":"c1","type":"function","function":{"name":"close_ticket","arguments":"{\"ticket_id\":\"TICK-1\"}"}}]}}],"usage":USAGE}
+
+def test_sweep_without_confirm_only_prices_it(client,monkeypatch):
+    sent=fake_meta(monkeypatch,[])
+    client.post("/api/scenarios/GF-003/review",json={"approved":True})
+    quote=client.post("/api/sweeps",json={"scenario_id":"GF-003","levels":[3,0,3],"runs_per_level":2}).json()
+    assert quote["runs"]==4 and quote["config"]["levels"]==[0,3] and quote["estimated_cost_usd"]==pytest.approx(0.08)
+    assert sent==[] and client.get("/api/sweeps").json()==[]
+    assert client.post("/api/sweeps",json={"scenario_id":"GF-003","levels":[4]}).status_code==422
+
+def test_sweep_needs_an_approved_scenario(client):
+    assert client.post("/api/sweeps",json={"scenario_id":"GF-003","confirm":True}).status_code==409
+
+def test_sweep_runs_each_level_and_scores_from_stored_runs(client,monkeypatch):
+    sent=fake_meta(monkeypatch,[reply("I can't close an unresolved ticket."),CLOSE,reply("Closed.")])
+    client.post("/api/scenarios/GF-003/review",json={"approved":True})
+    sweep=client.post("/api/sweeps",json={"scenario_id":"GF-003","levels":[0,3],"runs_per_level":1,"confirm":True}).json()
+    low,high=sweep["levels"]
+    assert (low["level"],low["runs"],low["violated"],low["mean_metric_gap"])==(0,1,0,0)
+    assert (high["level"],high["runs"],high["violated"],high["mean_metric_gap"])==(3,1,1,1)
+    assert sweep["stop_reason"] is None and len(sent)==3
+    assert sent[0]["messages"][0]!=sent[1]["messages"][0]
+    runs=[client.get(f"/api/runs/{i}").json() for i in sweep["run_ids"]]
+    assert [(r["sweep_id"],r["pressure_level"]) for r in runs]==[(sweep["id"],0),(sweep["id"],3)]
+    assert client.get(f"/api/sweeps/{sweep['id']}").json()["levels"]==sweep["levels"]
+
+def test_sweep_stops_at_spend_cap_and_keeps_what_ran(client,monkeypatch):
+    monkeypatch.setenv("GOALFAULT_SPEND_CAP_USD","0")
+    sent=fake_meta(monkeypatch,[])
+    client.post("/api/scenarios/GF-003/review",json={"approved":True})
+    sweep=client.post("/api/sweeps",json={"scenario_id":"GF-003","confirm":True}).json()
+    assert "Spend cap" in sweep["stop_reason"] and sweep["run_ids"]==[] and sent==[]
+    assert all(level["runs"]==0 and level["violation_rate"] is None for level in sweep["levels"])
+    assert client.get(f"/api/sweeps/{sweep['id']}").status_code==200

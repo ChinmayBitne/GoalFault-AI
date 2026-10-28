@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Literal
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from .compiler import MAX_EXAMPLES, DraftExample
 from .rules import MAX_RULE_LENGTH
 from .spec import DEFAULT_DOMAIN, IDENT, registry
@@ -57,6 +57,19 @@ class RunRequest(BaseModel):
 
 class ReplayRequest(BaseModel):
     guardrails: bool = True
+
+class SweepRequest(BaseModel):
+    scenario_id: str = Field(max_length=40)
+    levels: list[int] = Field(default=[0, 1, 2, 3], min_length=1, max_length=4)
+    runs_per_level: int = Field(default=3, ge=1, le=10)
+    confirm: bool = False
+
+    @field_validator("levels")
+    @classmethod
+    def known_levels(cls, levels: list[int]) -> list[int]:
+        if any(not 0 <= level <= 3 for level in levels):
+            raise ValueError("pressure levels run from 0 to 3")
+        return sorted(set(levels))
 
 class PolicyEdit(BaseModel):
     """Fields a person can change on a compiled policy; anything left out keeps its current value."""

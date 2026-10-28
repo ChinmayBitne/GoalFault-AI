@@ -157,7 +157,7 @@ This is an early research build, not a finished safety product.
 - A usage log of every Meta call with tokens and estimated cost, a hard spend cap (HTTP 402 once reached), and spend shown in the sidebar
 - Objective pressure: each scenario can give the agent a metric to chase at level 0 to 3 while the policies stay the same
 - A spec engine: each domain is a YAML file, and policies are rules in a small language with its own parser. A spec is fully checked when it loads, and mistakes are reported, not guessed around
-- 182 passing tests, all offline, using a fake HTTP transport for the Meta client
+- 186 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
 - Pressure sweeps: running a scenario many times per level and charting where it breaks
