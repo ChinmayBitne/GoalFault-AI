@@ -12,7 +12,7 @@
  <aside class="sidebar">
   <div class="brand"><div class="brand-icon">GF<span>◈</span></div><div><strong>goalfault<span class="brand-ai">.ai</span></strong><small>Agent reliability laboratory</small></div></div>
   <div class="sidebar-label">LABORATORY</div>
-  <nav><a class="nav-link active" href="#workspace">◫ <span>Overview</span></a><a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a><a class="nav-link" href="#policies">§ <span>Policy compiler</span></a><a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a></nav>
+  <nav><a class="nav-link active" href="#workspace">◫ <span>Overview</span></a><a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a><a class="nav-link" href="#policies">§ <span>Policy compiler</span></a><a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a><a class="nav-link" href="#sweeps">↗ <span>Pressure sweep</span></a></nav>
   <div class="sidebar-label">MODEL ENGINE</div>
   <div class="engine"><span class="green-dot"></span><div><b>Meta Muse Spark</b><small id="modelStatus">Checking configuration…</small></div></div>
   <div class="spend" title="Estimated cost of logged Meta calls against the local spend cap"><div class="spend-row"><span>API SPEND</span><b id="spendText">—</b></div><div class="spend-bar"><span id="spendBar"></span></div><small id="spendNote">Loading usage…</small></div>
@@ -90,6 +90,25 @@
        <div class="result-body" id="resultBody"><div class="empty-state"><div class="empty-icon">⌁</div><h3>Waiting for the first experiment</h3><p>Choose a scenario, approve it, then run a controlled fixture or live Muse agent to inspect the actual tool trace.</p></div></div>
      </div>
    </section>
+   <section class="section" id="sweeps"><div class="section-title"><div><span class="eyebrow small">04 / PRESSURE SWEEP</span><h2>Pressure sweep</h2><p>Run one scenario at every pressure level with live Muse and see where the agent starts cutting corners.</p></div><span class="label-outline">STORED RUNS ONLY</span></div>
+   <div class="work-grid">
+     <div class="panel creation-panel">
+       <div class="panel-heading"><b>New sweep</b><span class="panel-tag">LIVE MUSE</span></div>
+       <label for="sweepScenario">Approved scenario</label>
+       <select id="sweepScenario" class="text-input"></select>
+       <small class="muted" id="sweepNote"></small>
+       <label for="sweepRuns">Runs per pressure level</label>
+       <input id="sweepRuns" class="text-input" type="number" min="1" max="10" value="3"/>
+       <button class="primary-btn" id="sweepBtn">Price and run sweep <span>→</span></button>
+       <small class="muted" id="sweepStatus" aria-live="polite"></small>
+       <div class="hint">You see the estimated cost and confirm before anything runs. Guards are off so the chart shows what the agent tries; the spend cap still applies.</div>
+     </div>
+     <div class="panel queue-panel">
+       <div class="panel-heading"><b>Results</b><select id="sweepPick" aria-label="Choose a sweep"></select></div>
+       <div id="sweepResult"><p class="muted">No sweeps for this domain yet.</p></div>
+     </div>
+   </div>
+   </section>
    <footer><span>GOALFAULT AI — META GLOBAL AI DEVELOPER HACKATHON 2026</span><span>Evidence before confidence.</span></footer>
   </div>
  </main>
@@ -98,5 +117,6 @@
 <dialog id="reviewDialog"><form method="dialog"><div class="dialog-header"><span>TEST APPROVAL</span><button aria-label="Close review dialog" value="cancel" class="plain-btn">✕</button></div><h2 id="reviewTitle"></h2><p id="reviewDesc" class="muted"></p><label for="reviewMessage">Simulated user message (editable)</label><textarea id="reviewMessage" rows="5" maxlength="1500"></textarea><div class="review-grid"><div><label for="reviewObjective">Agent objective (what it is scored on)</label><input id="reviewObjective" maxlength="300" placeholder="e.g. You are scored on tickets closed per hour."/></div><div><label for="reviewPressure">Pressure</label><select id="reviewPressure"><option value="0">0 · none</option><option value="1">1 · mild</option><option value="2">2 · strong</option><option value="3">3 · extreme</option></select></div></div><small class="review-hint">Pressure adds the objective to the live agent prompt. Policies stay the same at every level. Level 0 sends no objective.</small><div class="approval-note">Review the prompt, risk, and expected invariant. Approval authorizes only execution in the isolated simulated tool environment.</div><div class="dialog-actions"><button type="button" id="rejectBtn" class="danger-btn">Reject</button><button type="button" id="approveBtn" class="primary-btn">Approve test →</button></div></form></dialog>
 <script src="/assets/app.js" defer></script>
 <script src="/assets/compiler.js" defer></script>
+<script src="/assets/sweep.js" defer></script>
 </body>
 </html>
