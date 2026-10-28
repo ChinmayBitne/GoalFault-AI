@@ -113,7 +113,7 @@ POST /api/runs/RUN-3F9A0C21B4/repair
 {"text": "Refunds over $100 need an approval on file.", "rule": "deny issue_refund when args.amount > 100", "invariant": "guard_no_large_refund"}
 ```
 
-No model call. The rule is parsed and checked against the run's reduced failing actions and the domain's safe controls. It is saved as a proposed compiled policy (`source: repair`). Approve it with `POST /api/policies/{id}/review`. Approval is refused until the rule flags that trace, guards block the flagged call, and no safe control is flagged.
+`mode` is `manual` (the default) or `muse`. Manual mode needs `rule` and `invariant` and does not call the model. Muse mode sends the reduced failing trace and the safe controls, and the reply supplies the rule. Either way the rule is parsed and checked against that trace and the domain's safe controls. It is saved as a proposed compiled policy (`source: repair`). Approve it with `POST /api/policies/{id}/review`. Approval is refused until the rule flags that trace, guards block the flagged call, and no safe control is flagged.
 
 ### Run a pressure sweep
 

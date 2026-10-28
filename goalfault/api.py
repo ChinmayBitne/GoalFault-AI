@@ -289,10 +289,18 @@ def repair_run(run_id:str,req:RepairRequest):
     spec=effective_spec(run["domain"])
     record={"id":"POL-"+uuid4().hex[:8].upper(),"domain":run["domain"],"policy_id":None,"status":"proposed",
             "source":"repair","run_id":run["id"],"failing_actions":actions,"created_at":utc_now(),
-            "reviewed_at":None,"usage":{},"estimated_model_cost_usd":0,
-            "draft":{"text":req.text,"rule":req.rule,"invariant":req.invariant,"explanation":""}}
-    try: draft=PolicyDraft.model_validate(record["draft"])
-    except ValidationError as exc: raise HTTPException(422,f"Draft is invalid: {exc.errors()[0]['msg']}") from exc
+            "reviewed_at":None,"usage":{},"estimated_model_cost_usd":0}
+    if req.mode=="muse":
+        client=meta_client()
+        try: draft,usage=client.repair_policy(req.text,actions,spec)
+        except MetaError as e: raise meta_failure(e) from e
+        record.update(usage=usage,estimated_model_cost_usd=estimate_cost(usage),usage_ids=client.usage_ids)
+    else:
+        if not req.rule or not req.invariant:
+            raise HTTPException(422,"Manual repair needs a rule and an invariant name")
+        record["draft"]={"text":req.text,"rule":req.rule,"invariant":req.invariant,"explanation":""}
+        try: draft=PolicyDraft.model_validate(record["draft"])
+        except ValidationError as exc: raise HTTPException(422,f"Draft is invalid: {exc.errors()[0]['msg']}") from exc
     with POLICY_ID_LOCK:
         record["policy_id"]=next_policy_id(run["domain"])
         record=recheck(record,draft)
