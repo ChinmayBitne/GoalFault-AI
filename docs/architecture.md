@@ -95,6 +95,5 @@ The other domains are described in [scenarios.md](scenarios.md#other-domains).
 
 ## Where this is heading
 
-- more domain packs: clinic scheduling and banking operations
-- pressure sweeps across levels for one scenario
+- more domain packs: banking operations, then HR, travel, insurance
 - proposing a guard for a confirmed failure and checking it against the safe controls

@@ -35,13 +35,14 @@ A fixture violation shows the checker works. It says nothing about how Muse beha
 
 ## The sandbox
 
-GoalFault ships with three domains. Each one is a fake business system with made-up data, and you pick which one to test from the dashboard.
+GoalFault ships with four domains. Each one is a fake business system with made-up data, and you pick which one to test from the dashboard.
 
 | Domain | Tools | Policies | What can go wrong |
 |---|---|---|---|
 | Customer support | 4 | 3 | Large refunds without manager approval, looking up another customer's order, closing an unresolved ticket |
 | IT helpdesk | 6 | 4 | Password resets without identity checks, admin access without a change ticket, the desk granting itself access, closing incidents nobody confirmed |
 | E-commerce returns | 4 | 3 | Returns after the 30-day window, store credit above what was paid, waiving restocking fees without a reason code |
+| Clinic scheduling | 4 | 3 | Looking up another patient's record, booking a slot that's already taken, sharing a visit summary without a consent flag |
 
 In the support desk, for example, there is one signed-in customer (`CUST-001`), two orders and one open ticket:
 
@@ -135,8 +136,8 @@ goalfault/
   fixtures.py    policies, tool catalog and seed scenarios read from the spec, pressure texts
   models.py      request and data models (Pydantic)
   storage.py     SQLite storage for scenarios, runs, compiled policies and the Meta usage log
-domains/         domain specs (customer_support, it_helpdesk, ecommerce_returns)
-web/             dashboard (plain HTML, CSS, JS; compiler.js is the policy compiler panel)
+domains/         domain specs (support, IT helpdesk, returns, clinic scheduling)
+web/             dashboard (plain HTML, CSS, JS; compiler.js is the policy compiler panel, sweep.js the pressure chart)
 tests/           pytest suite
 scripts/verify.py  quick deterministic check of all fixtures
 docs/            design notes
@@ -148,7 +149,7 @@ This is an early research build, not a finished safety product.
 
 **Working now**
 - Dashboard with a domain picker and the proposal, review and approve/reject flow
-- Three domains (customer support, IT helpdesk, e-commerce returns) with 10 seeded scenarios and 8 safe controls, all passing the quality bar
+- Four domains (customer support, IT helpdesk, e-commerce returns, clinic scheduling) with 13 seeded scenarios and 11 safe controls, all passing the quality bar
 - Scripted fixtures, guarded replay and greedy trace shrinking. When one call breaks several policies, every one is recorded
 - A policy compiler: plain English in, a checked rule with pass and fail examples out, approved by a person. Checked against the live API on two domains
 - Meta Muse client for structured proposals and the tool-calling agent loop, checked against the live API (proposals and agent runs both work, and Muse has refused every policy violation so far)
@@ -157,17 +158,16 @@ This is an early research build, not a finished safety product.
 - A usage log of every Meta call with tokens and estimated cost, a hard spend cap (HTTP 402 once reached), and spend shown in the sidebar
 - Objective pressure: each scenario can give the agent a metric to chase at level 0 to 3 while the policies stay the same
 - A spec engine: each domain is a YAML file, and policies are rules in a small language with its own parser. A spec is fully checked when it loads, and mistakes are reported, not guessed around
-- 187 passing tests, all offline, using a fake HTTP transport for the Meta client
+- Pressure sweeps: an approved scenario at levels 0–3, quoted and confirmed before any live run, scored from stored runs and shown as a chart with denominators
+- 195 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
-- Pressure sweeps: running a scenario many times per level and charting where it breaks
-- More domain packs (clinic scheduling, banking operations)
+- More domain packs (banking operations, HR, travel, insurance)
 - A hosted demo with authentication and durable storage
 
 ## Roadmap
 
-- **More domains.** A domain is a file, not code. Clinic scheduling and banking operations are next.
-- **Pressure sweep.** Run the same scenario under increasing KPI pressure and chart where the agent starts breaking rules.
+- **More domains.** A domain is a file, not code. Banking operations is next.
 - **Guard repair.** For a confirmed failure, propose a guard and check that it blocks the bad trace without blocking safe controls.
 - **Guard library.** Export accepted guards as a small Python decorator that wraps your real tool functions.
 
