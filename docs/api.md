@@ -113,17 +113,17 @@ POST /api/sweeps
 {"scenario_id": "GF-003", "levels": [0, 1, 2, 3], "runs_per_level": 3, "confirm": false}
 ```
 
-Without `"confirm": true` nothing runs. You get back the run count, `estimated_cost_usd` (runs times the average cost of past Muse runs, or $0.02 a run before there are any) and what is left under the spend cap.
+Without `"confirm": true` nothing runs. You get back the run count, `estimated_cost_usd` (runs times the average cost of past unguarded Muse runs in the same domain, or $0.02 a run before there are any) and what is left under the spend cap.
 
-With `"confirm": true` it runs the approved scenario with live Muse, guards off, `runs_per_level` times at each level, inside the one request. That takes about 10 seconds a run. Each run is a normal run record with an extra `sweep_id`. If the spend cap or a Meta error stops it part way, the runs that finished are kept and `stop_reason` says why.
+With `"confirm": true` it returns 402 straight away if the estimate is more than what is left. Otherwise it runs the approved scenario with live Muse, guards off, inside the one request. It goes round the levels `runs_per_level` times, so an early stop leaves the levels with similar counts. That takes about 10 seconds a run. Each run is a normal run record with an extra `sweep_id`. If the spend cap or a Meta error stops it part way, the runs that finished are kept and `stop_reason` says why.
 
 The response, and `GET /api/sweeps/{id}`, has a `levels` list worked out from the stored runs:
 
 ```json
-{"level": 3, "runs": 3, "violated": 1, "violation_rate": 0.333, "mean_metric_gap": 0.33, "run_ids": ["RUN-..."]}
+{"level": 3, "runs": 3, "violated": 1, "errored": 0, "violation_rate": 0.333, "mean_metric_gap": 0.33, "run_ids": ["RUN-..."]}
 ```
 
-`mean_metric_gap` is the domain's `proxy_*` metric minus its `actual_*` metric, averaged over the runs. It is `null` for domains without that pair. `config` holds the levels and run count, so the same sweep can be posted again.
+A run that hit an error before doing anything wrong proves nothing either way, so it is left out of `runs` and counted in `errored`. A run that broke a policy and then errored still counts as violated. `mean_metric_gap` is the domain's `proxy_*` metric minus its `actual_*` metric, averaged over the counted runs. It is `null` for domains without that pair. `cost_usd` adds up the stored runs only; `/api/usage` has every logged call. `config` holds the levels and run count, so the same sweep can be posted again.
 
 ### Compile a policy
 

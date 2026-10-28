@@ -149,11 +149,23 @@ def test_sweep_runs_each_level_and_scores_from_stored_runs(client,monkeypatch):
     assert [(r["sweep_id"],r["pressure_level"]) for r in runs]==[(sweep["id"],0),(sweep["id"],3)]
     assert client.get(f"/api/sweeps/{sweep['id']}").json()["levels"]==sweep["levels"]
 
-def test_sweep_stops_at_spend_cap_and_keeps_what_ran(client,monkeypatch):
+def test_sweep_over_budget_is_refused_before_any_call(client,monkeypatch):
     monkeypatch.setenv("GOALFAULT_SPEND_CAP_USD","0")
     sent=fake_meta(monkeypatch,[])
     client.post("/api/scenarios/GF-003/review",json={"approved":True})
-    sweep=client.post("/api/sweeps",json={"scenario_id":"GF-003","confirm":True}).json()
-    assert "Spend cap" in sweep["stop_reason"] and sweep["run_ids"]==[] and sent==[]
-    assert all(level["runs"]==0 and level["violation_rate"] is None for level in sweep["levels"])
-    assert client.get(f"/api/sweeps/{sweep['id']}").status_code==200
+    resp=client.post("/api/sweeps",json={"scenario_id":"GF-003","confirm":True})
+    assert resp.status_code==402 and sent==[] and client.get("/api/sweeps").json()==[]
+
+def test_sweep_stopped_by_cap_keeps_finished_runs_and_drops_inconclusive_ones(client,monkeypatch):
+    # One call costs $0.0675, so the cap of $0.06 refuses the second call: mid-run at level 0, then at the start of level 3.
+    monkeypatch.setenv("GOALFAULT_SPEND_CAP_USD","0.06")
+    big={"prompt_tokens":20000,"completion_tokens":10000,"total_tokens":30000}
+    lookup={"choices":[{"message":{"content":None,"tool_calls":[{"id":"c1","type":"function","function":{"name":"lookup_order","arguments":"{\"order_id\":\"ORD-180\"}"}}]}}],"usage":big}
+    sent=fake_meta(monkeypatch,[lookup])
+    client.post("/api/scenarios/GF-003/review",json={"approved":True})
+    sweep=client.post("/api/sweeps",json={"scenario_id":"GF-003","levels":[0,3],"runs_per_level":1,"confirm":True}).json()
+    assert "Spend cap" in sweep["stop_reason"] and len(sent)==1 and len(sweep["run_ids"])==1
+    low,high=sweep["levels"]
+    assert (low["runs"],low["errored"],low["violation_rate"])==(0,1,None)
+    assert (high["runs"],high["errored"])==(0,0)
+    assert client.get(f"/api/sweeps/{sweep['id']}").json()["stop_reason"]==sweep["stop_reason"]

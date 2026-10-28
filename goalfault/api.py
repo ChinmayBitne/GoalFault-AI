@@ -196,8 +196,9 @@ def run_scenario(scenario_id:str,req:RunRequest):
 # Fallback when no live run has been recorded yet; replaced by the real average once one exists.
 FIRST_RUN_ESTIMATE_USD=0.02
 
-def run_cost_estimate()->float:
-    costs=[r["estimated_model_cost_usd"] for r in database().list_runs(200) if r["source"]=="muse"]
+def run_cost_estimate(domain:str)->float:
+    costs=[r["estimated_model_cost_usd"] for r in database().list_runs(200)
+           if r["source"]=="muse" and r.get("domain")==domain and not r["guardrails"]]
     return sum(costs)/len(costs) if costs else FIRST_RUN_ESTIMATE_USD
 
 def metric_gap(evaluation:dict)->float|None:
@@ -212,10 +213,12 @@ def sweep_view(sweep:dict)->dict:
     levels=[]
     for level in sweep["config"]["levels"]:
         at=[r for r in runs if r["pressure_level"]==level]
-        gaps=[g for g in (metric_gap(r["evaluation"]) for r in at) if g is not None]
-        violated=sum(not r["evaluation"]["passed"] for r in at)
-        levels.append({"level":level,"runs":len(at),"violated":violated,
-                       "violation_rate":violated/len(at) if at else None,
+        # A violation before an error still happened; a run that errored without one proves nothing either way.
+        scored=[r for r in at if not r["evaluation"]["passed"] or r.get("stop_reason")!="error"]
+        gaps=[g for g in (metric_gap(r["evaluation"]) for r in scored) if g is not None]
+        violated=sum(not r["evaluation"]["passed"] for r in scored)
+        levels.append({"level":level,"runs":len(scored),"violated":violated,"errored":len(at)-len(scored),
+                       "violation_rate":violated/len(scored) if scored else None,
                        "mean_metric_gap":sum(gaps)/len(gaps) if gaps else None,
                        "run_ids":[r["id"] for r in at]})
     return {**sweep,"levels":levels,"cost_usd":round(sum(r["estimated_model_cost_usd"] for r in runs),6)}
@@ -227,20 +230,28 @@ def start_sweep(req:SweepRequest):
     if s.status!="approved": raise HTTPException(409,"Review and approve this scenario before sweeping it")
     config=req.model_dump(exclude={"confirm"})
     total=len(req.levels)*req.runs_per_level
-    estimate=round(total*run_cost_estimate(),4)
+    estimate=round(total*run_cost_estimate(s.domain),4)
+    remaining=round(max(spend_cap()-database().total_spend(),0),6)
     if not req.confirm:
-        return {"config":config,"runs":total,"estimated_cost_usd":estimate,"remaining_usd":round(max(spend_cap()-database().total_spend(),0),6)}
+        return {"config":config,"runs":total,"estimated_cost_usd":estimate,"remaining_usd":remaining}
+    if estimate>remaining:
+        raise HTTPException(402,f"Estimated ${estimate:.4f} is more than the ${remaining:.4f} left under the spend cap")
     sweep={"id":"SWP-"+uuid4().hex[:8].upper(),"created_at":utc_now(),"scenario_id":s.id,"domain":s.domain,
            "config":config,"estimated_cost_usd":estimate,"run_ids":[],"stop_reason":None}
     # shortcut: runs synchronously in one request (about 10 s per run); move to a background job if sweeps grow past ~40 runs.
     try:
-        for level in req.levels:
-            for _ in range(req.runs_per_level):
+        # Level by level within each round, so an early stop leaves every level with a similar number of runs.
+        for _ in range(req.runs_per_level):
+            for level in req.levels:
                 run=execute_run(s.model_copy(update={"pressure_level":level}),"muse",False,sweep_id=sweep["id"])
                 sweep["run_ids"].append(run["id"])
                 database().save_sweep(sweep)
     except MetaError as e:
         sweep["stop_reason"]=str(e)
+    except Exception as e:
+        sweep["stop_reason"]=f"Stopped by an internal error: {type(e).__name__}"
+        database().save_sweep(sweep)
+        raise
     database().save_sweep(sweep)
     return sweep_view(sweep)
 
