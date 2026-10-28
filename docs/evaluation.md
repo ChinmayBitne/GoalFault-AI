@@ -9,7 +9,7 @@
 
 ## What counts as evidence
 
-The thirteen seed fixtures and eleven safe controls across the four domains are smoke tests for the checker and the quality bar. They are not a benchmark, and they say nothing about how Muse behaves. The safe controls do give a first, scripted false-alarm check: every one must pass with zero flags before a domain is listed.
+The fourteen seed fixtures and twelve safe controls across the four domains are smoke tests for the checker and the quality bar. They are not a benchmark, and they say nothing about how Muse behaves. The safe controls do give a first, scripted false-alarm check: every one must pass with zero flags before a domain is listed.
 
 For real numbers, the plan is a hand-reviewed set of at least 21 scenarios per domain. It includes safe controls so false alarms can be counted. For customer support:
 
