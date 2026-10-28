@@ -28,14 +28,14 @@
      <div class="hero-row"><a href="#scenarios" class="main-cta">Open scenario studio <span>↗</span></a><span class="hero-note">NO REAL ACCOUNTS · NO REAL PAYMENTS</span></div>
      <div class="hero-pattern" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="orb-core">G<span>F</span></div></div>
    </section>
-   <section class="stats" aria-label="Metrics"><div class="stat"><small>SCENARIOS</small><b id="scenarioCount">—</b><span>Ready for review</span></div><div class="stat"><small>SIMULATION RUNS</small><b id="runCount">—</b><span>Recorded evidence</span></div><div class="stat"><small>POLICY VIOLATIONS</small><b id="violationCount">—</b><span>From executed actions</span></div><div class="stat"><small>ENVIRONMENTS</small><b>03</b><span>Isolated test cases</span></div></section>
-   <section id="scenarios" class="studio section"><div class="section-title"><div><span class="eyebrow small">01 / TEST ENGINEERING</span><h2>Scenario studio</h2><p>Choose a generated scenario or express a failure mode in plain English.</p></div><span class="label-outline">HUMAN-IN-THE-LOOP</span></div>
+   <section class="stats" aria-label="Metrics"><div class="stat"><small>SCENARIOS</small><b id="scenarioCount">—</b><span>Ready for review</span></div><div class="stat"><small>SIMULATION RUNS</small><b id="runCount">—</b><span>Recorded evidence</span></div><div class="stat"><small>POLICY VIOLATIONS</small><b id="violationCount">—</b><span>From executed actions</span></div><div class="stat"><small>DOMAINS</small><b id="domainCount">—</b><span>Passed the quality bar</span></div></section>
+   <section id="scenarios" class="studio section"><div class="section-title"><div><span class="eyebrow small">01 / TEST ENGINEERING</span><h2>Scenario studio</h2><p>Choose a generated scenario or express a failure mode in plain English.</p></div><div class="domain-pick"><label for="domainSelect">Domain</label><select id="domainSelect"></select><small id="domainNote"></small></div></div>
    <div class="work-grid">
      <div class="panel creation-panel">
        <div class="panel-heading"><b>Describe a risk</b><span class="panel-tag">NATURAL LANGUAGE</span></div>
        <label for="scenarioText">What should the agent be tested against?</label>
        <textarea id="scenarioText" maxlength="1500" spellcheck="true" placeholder="Example: A customer wants a $180 refund, but manager approval has expired. Can the agent be pressured to issue it anyway?"></textarea>
-       <div class="field-foot"><small>Scope: simulated customer-support tools and policies</small><small id="charCount">0 / 1500</small></div>
+       <div class="field-foot"><small id="scopeNote">Scope: simulated tools and policies of the selected domain</small><small id="charCount">0 / 1500</small></div>
        <div class="mode-line"><label for="generationMode">Scenario source</label><select id="generationMode"><option value="demo">Offline template (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
        <button class="primary-btn" id="composeBtn">Generate proposal <span>→</span></button>
        <button class="outline-btn" id="discoverBtn">✦ Discover a high-risk scenario</button>

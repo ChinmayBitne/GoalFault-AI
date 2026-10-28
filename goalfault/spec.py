@@ -111,6 +111,12 @@ class ScenarioSpec(Strict):
     keywords: list[str]=[]
     fixture: list[FixtureAction]=Field(min_length=1)
 
+class SafeControl(Strict):
+    name: str=Field(pattern=IDENT,max_length=60)
+    title: str=Field(min_length=5,max_length=120)
+    description: str=Field(min_length=5,max_length=500)
+    actions: list[FixtureAction]=Field(min_length=1)
+
 class Prompts(Strict):
     agent: str=Field(min_length=20,max_length=4000)
     proposal: str=Field(min_length=20,max_length=2000)
@@ -128,15 +134,20 @@ class CompiledTool:
 class DomainSpec(Strict):
     version: TypeLiteral[1]=1
     name: str=Field(pattern=IDENT,max_length=60)
+    # Seed scenario IDs become GF-<code>-001; a domain without a code uses GF-001.
+    code: str|None=Field(default=None,pattern=r"^[A-Z]{2,6}$")
     title: str=Field(min_length=3,max_length=120)
     description: str=Field(min_length=5,max_length=1000)
     default_objective: str=Field(min_length=5,max_length=300)
+    # Optional replacements for the generic pressure statements, by level 1-3.
+    pressure: dict[int,str]={}
     prompts: Prompts
     initial_state: dict[str,Any]
     tools: list[Tool]=Field(min_length=1)
     policies: list[Policy]=Field(min_length=1)
     metrics: dict[str,str]={}
     scenarios: list[ScenarioSpec]=Field(min_length=1)
+    safe_controls: list[SafeControl]=[]
     default_kind: str
     _tools: dict[str,CompiledTool]=PrivateAttr(default_factory=dict)
     _metrics: dict[str,Any]=PrivateAttr(default_factory=dict)
@@ -223,14 +234,23 @@ class DomainSpec(Strict):
             if not re.match(IDENT,name) or name in EVALUATION_KEYS: errors.append(f"bad metric name {name!r}")
             metrics[name]=parse(source,f"metric {name}",{"state"})
 
+        def check_actions(actions,where):
+            for i,action in enumerate(actions):
+                c=tools.get(action.tool)
+                if c is None: errors.append(f"{where}[{i}]: unknown tool {action.tool!r}")
+                else: errors.extend(f"{where}[{i}]: unknown argument {k!r}" for k in action.args if k not in c.tool.params)
+
         policy_ids={p.id for p in self.policies}
         for s in self.scenarios:
             where=f"scenario {s.kind}"
             if s.policy not in policy_ids: errors.append(f"{where}: unknown policy {s.policy!r}")
-            for i,action in enumerate(s.fixture):
-                c=tools.get(action.tool)
-                if c is None: errors.append(f"{where}.fixture[{i}]: unknown tool {action.tool!r}")
-                else: errors+=[f"{where}.fixture[{i}]: unknown argument {k!r}" for k in action.args if k not in c.tool.params]
+            check_actions(s.fixture,f"{where}.fixture")
+        unique("safe control",[c.name for c in self.safe_controls])
+        for control in self.safe_controls:
+            check_actions(control.actions,f"safe control {control.name}.actions")
+        for level,text in self.pressure.items():
+            if level not in (1,2,3): errors.append(f"pressure: level {level} is not 1, 2 or 3")
+            elif not 5<=len(text)<=300: errors.append(f"pressure.{level}: text must be 5 to 300 characters")
         if self.default_kind not in {s.kind for s in self.scenarios}:
             errors.append(f"default_kind {self.default_kind!r} is not a scenario kind")
         if errors: raise ValueError("; ".join(errors))
@@ -252,6 +272,14 @@ class DomainSpec(Strict):
     def invariant_for(self,kind:str)->str: return self.policy(self.scenario(kind).policy).invariant
 
     def fresh_state(self)->dict: return deepcopy(self.initial_state)
+
+    def seed_id(self,index:int)->str: return f"GF-{self.code}-{index:03}" if self.code else f"GF-{index:03}"
+
+    def with_policies(self,extra:list)->DomainSpec:
+        """A copy of this spec with more policies, validated from scratch like a freshly loaded file."""
+        data=self.model_dump(exclude_unset=True)
+        data["policies"]=[*data["policies"],*(p.model_dump(exclude_unset=True) if isinstance(p,Policy) else p for p in extra)]
+        return validate(data)
 
 
 def assignable(node,roots:set)->bool:
@@ -297,6 +325,9 @@ def parse_spec(text:str)->DomainSpec:
     if not isinstance(data,dict): raise SpecError("Spec must be a YAML mapping")
     problem=shape_problem(data)
     if problem: raise SpecError(problem)
+    return validate(data)
+
+def validate(data:dict)->DomainSpec:
     try: return DomainSpec.model_validate(data)
     except ValidationError as exc:
         raise SpecError("Spec is invalid:\n"+"\n".join(
@@ -305,6 +336,28 @@ def parse_spec(text:str)->DomainSpec:
 def load_spec(path:str|Path)->DomainSpec:
     return parse_spec(Path(path).read_text(encoding="utf-8"))
 
+class UnknownDomain(KeyError):
+    pass
+
 @lru_cache
+def registry()->dict[str,DomainSpec]:
+    """Every spec in domains/, keyed by name. One broken file stops the server rather than being skipped."""
+    specs:dict[str,DomainSpec]={}
+    seed_ids:set[str]=set()
+    for path in sorted(DOMAINS_DIR.glob("*.yaml")):
+        try: spec=load_spec(path)
+        except SpecError as exc: raise SpecError(f"{path.name}: {exc}") from exc
+        if spec.name!=path.stem: raise SpecError(f"{path.name}: name {spec.name!r} must match the file name")
+        ids={spec.seed_id(i) for i in range(1,len(spec.scenarios)+1)}
+        if ids&seed_ids: raise SpecError(f"{path.name}: seed scenario IDs clash with another domain; set a unique code")
+        seed_ids|=ids
+        specs[spec.name]=spec
+    if DEFAULT_DOMAIN not in specs: raise SpecError(f"domains/{DEFAULT_DOMAIN}.yaml is missing")
+    return specs
+
+def get_spec(name:str)->DomainSpec:
+    try: return registry()[name]
+    except KeyError: raise UnknownDomain(name) from None
+
 def default_spec()->DomainSpec:
-    return load_spec(DOMAINS_DIR/f"{DEFAULT_DOMAIN}.yaml")
+    return get_spec(DEFAULT_DOMAIN)

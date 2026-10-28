@@ -3,7 +3,7 @@ import json
 import sqlite3
 from datetime import datetime,timezone
 from pathlib import Path
-from .fixtures import seed_scenarios
+from .fixtures import all_seed_scenarios
 from .models import Scenario
 
 
@@ -21,17 +21,16 @@ class Storage:
                 "purpose TEXT NOT NULL, scenario_id TEXT, run_id TEXT, model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, "
                 "completion_tokens INTEGER NOT NULL, reasoning_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, "
                 "cost_usd REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 1)")
-            exists=c.execute("SELECT COUNT(*) FROM scenarios").fetchone()[0]
-            if not exists:
-                for scenario in seed_scenarios():
-                    c.execute("INSERT INTO scenarios VALUES (?,?)",(scenario.id, scenario.model_dump_json()))
+            # Seeds that already exist keep their reviews; a newly added domain gets its seeds on the next start.
+            c.executemany("INSERT OR IGNORE INTO scenarios VALUES (?,?)",[(s.id,s.model_dump_json()) for s in all_seed_scenarios()])
 
     def connect(self):
         return sqlite3.connect(self.path, timeout=10)
 
-    def list_scenarios(self) -> list[Scenario]:
+    def list_scenarios(self,domain:str|None=None) -> list[Scenario]:
         with self.connect() as c:
-            return [Scenario.model_validate_json(row[0]) for row in c.execute("SELECT payload FROM scenarios ORDER BY id")]
+            found=[Scenario.model_validate_json(row[0]) for row in c.execute("SELECT payload FROM scenarios ORDER BY id")]
+        return [s for s in found if domain is None or s.domain==domain]
 
     def get_scenario(self,id:str) -> Scenario|None:
         with self.connect() as c:
