@@ -15,6 +15,7 @@ Write routes (`POST`) are subject to the rules in [security.md](security.md#writ
 | GET | `/api/domains/{domain}/policies` | The domain's own policies (`spec_policies`) and its compiled policies (`compiled`, newest first) |
 | GET | `/api/runs` | The 30 most recent runs |
 | GET | `/api/runs/{id}` | One run with full trace and evaluation |
+| GET | `/api/runs/{id}/proof` | Each call with the replayed state change and the stored rule and policy text. `/runs/{id}` is the same proof as a page |
 | GET | `/api/usage` | Logged Meta spend against the spend cap |
 | GET | `/api/sweeps` | The 20 most recent pressure sweeps, each scored as below |
 | GET | `/api/sweeps/{id}` | One sweep, scored per pressure level from its stored runs |
