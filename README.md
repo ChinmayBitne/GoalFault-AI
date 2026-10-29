@@ -138,7 +138,7 @@ goalfault/
   models.py      request and data models (Pydantic)
   storage.py     SQLite storage for scenarios, runs, compiled policies and the Meta usage log
 domains/         domain specs (support, IT helpdesk, returns, clinic, banking)
-web/             dashboard (plain HTML, CSS, JS; compiler.js is the policy compiler panel, sweep.js the pressure chart)
+web/             dashboard (plain HTML, CSS, JS; compiler.js is the policy compiler panel, sweep.js the pressure chart, wizard.js the domain draft)
 tests/           pytest suite
 scripts/verify.py  quick deterministic check of all fixtures
 docs/            design notes
@@ -163,7 +163,8 @@ This is an early research build, not a finished safety product.
 - Guard repair: from a failing run, a rule you write is checked against that trace and the domain's safe controls, then approved like any other compiled policy
 - Guard export: `@guard("domains/x.yaml")` wraps a real function, raises `PolicyBlocked`, and keeps a decision log. `python -m scripts.guard_example` blocks the recorded $180 refund with no server
 - Muse can draft the guard for a failing run. The reply is checked the same way as a rule you write. That test uses a fake HTTP reply
-- 208 passing tests, all offline, using a fake HTTP transport for the Meta client
+- Domain wizard: a description becomes a checked spec. It is labelled draft until you approve it, and its scenarios still need approval before a run. That test uses a fake HTTP reply
+- 209 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
 - More domain packs (HR, travel, insurance)

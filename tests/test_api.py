@@ -200,6 +200,41 @@ def test_muse_repair_checks_the_model_rule(client,monkeypatch):
     assert sent[0]["response_format"]["json_schema"]["name"]=="goalfault_repair"
     assert "180" in sent[0]["messages"][0]["content"]
 
+def test_domain_draft_stays_out_until_a_person_approves_it(client,tmp_path,monkeypatch):
+    import shutil
+    from goalfault import spec as spec_module
+    from goalfault.quality import domain_quality
+    real=spec_module.DOMAINS_DIR
+    copy=tmp_path/"domains"
+    shutil.copytree(real,copy)
+    monkeypatch.setattr(spec_module,"DOMAINS_DIR",copy)
+    spec_module.registry.cache_clear()
+    domain_quality.cache_clear()
+    try:
+        bad=client.post("/api/domains/draft",json={"text":"A library help desk for synthetic staff.","yaml":"version: 1\nname: not_a_domain\n"}).json()
+        assert not bad["report"]["ok"]
+        assert client.post(f"/api/domains/drafts/{bad['id']}/review",json={"approved":True}).status_code==409
+        assert not (copy/"not_a_domain.yaml").exists() and not (real/"library_desk.yaml").exists()
+        text=(real/"it_helpdesk.yaml").read_text(encoding="utf-8")
+        text=text.replace("name: it_helpdesk","name: library_desk",1).replace("code: IT","code: LIB",1).replace("title: IT helpdesk","title: Library desk",1)
+        draft=client.post("/api/domains/draft",json={"text":"A library help desk for synthetic staff.","yaml":text}).json()
+        assert draft["report"]["ok"] and draft["status"]=="proposed"
+        assert all(d["name"]!="library_desk" for d in client.get("/api/domains").json())
+        approved=client.post(f"/api/domains/drafts/{draft['id']}/review",json={"approved":True}).json()
+        assert approved["status"]=="approved" and approved["label"]=="draft, human-reviewed"
+        assert (copy/"library_desk.yaml").exists() and not (real/"library_desk.yaml").exists()
+        assert "library_desk" in {d["name"] for d in client.get("/api/domains").json()}
+        seeds=client.get("/api/scenarios",params={"domain":"library_desk"}).json()
+        assert seeds and all(s["status"]=="proposed" for s in seeds)
+        reply={"yaml":text,"explanation":"Same desk, posted again."}
+        fake_meta(monkeypatch,[{"choices":[{"message":{"content":json.dumps(reply)}}],"usage":USAGE}])
+        again=client.post("/api/domains/draft",json={"text":"A library help desk for synthetic staff.","mode":"muse"}).json()
+        assert again["report"]["ok"] and again["source"]=="muse" and again["estimated_model_cost_usd"]>0
+        assert client.post(f"/api/domains/drafts/{again['id']}/review",json={"approved":True}).status_code==409
+    finally:
+        spec_module.registry.cache_clear()
+        domain_quality.cache_clear()
+
 def test_repair_needs_a_violation(client):
     run=failing_refund(client)
     replay=client.post(f"/api/runs/{run['id']}/replay",json={"guardrails":True}).json()

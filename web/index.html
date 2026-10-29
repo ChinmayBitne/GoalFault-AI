@@ -109,6 +109,24 @@
      </div>
    </div>
    </section>
+   <section id="wizard" class="section"><div class="section-title"><div><span class="eyebrow small">05 / NEW DOMAIN</span><h2>Domain wizard</h2><p>Describe a fictional business. The spec stays a draft until you approve it.</p></div></div>
+   <div class="work-grid">
+     <div class="panel creation-panel">
+       <div class="panel-heading"><b>Describe the business</b><span class="panel-tag">DRAFT, HUMAN-REVIEWED</span></div>
+       <label for="domainBrief">What does this desk do?</label>
+       <textarea id="domainBrief" maxlength="1500" spellcheck="true" placeholder="Example: A library desk that loans books to synthetic patrons and must not waive a fine without a supervisor code."></textarea>
+       <div class="mode-line"><label for="domainMode">Spec source</label><select id="domainMode"><option value="manual">Paste a spec (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
+       <label for="domainYaml">Domain YAML</label>
+       <textarea id="domainYaml" class="mono" rows="6" maxlength="80000" placeholder="version: 1"></textarea>
+       <button class="primary-btn" id="domainDraftBtn">Check this draft <span>→</span></button>
+       <div class="hint">Approval writes the file only after the spec parses and passes the quality bar. New scenarios still need their own approval before a run.</div>
+     </div>
+     <div class="panel queue-panel">
+       <div class="panel-heading"><b>Domain drafts</b><span class="counter" id="domainDraftCount">0</span></div>
+       <div id="domainDraftList" class="scenario-list"><p class="muted">No domain drafts yet.</p></div>
+     </div>
+   </div>
+   </section>
    <footer><span>GOALFAULT AI — META GLOBAL AI DEVELOPER HACKATHON 2026</span><span>Evidence before confidence.</span></footer>
   </div>
  </main>
@@ -118,5 +136,6 @@
 <script src="/assets/app.js" defer></script>
 <script src="/assets/compiler.js" defer></script>
 <script src="/assets/sweep.js" defer></script>
+<script src="/assets/wizard.js" defer></script>
 </body>
 </html>

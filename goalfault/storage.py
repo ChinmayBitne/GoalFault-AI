@@ -23,6 +23,7 @@ class Storage:
                 "cost_usd REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 1)")
             c.execute("CREATE TABLE IF NOT EXISTS policies (id TEXT PRIMARY KEY, domain TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
             c.execute("CREATE TABLE IF NOT EXISTS sweeps (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
+            c.execute("CREATE TABLE IF NOT EXISTS domain_drafts (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
             # Seeds that already exist keep their reviews; a newly added domain gets its seeds on the next start.
             c.executemany("INSERT OR IGNORE INTO scenarios VALUES (?,?)",[(s.id,s.model_dump_json()) for s in all_seed_scenarios()])
 
@@ -80,6 +81,20 @@ class Storage:
         with self.connect() as c:
             row=c.execute("SELECT payload FROM sweeps WHERE id=?",(id,)).fetchone()
             return json.loads(row[0]) if row else None
+
+    def save_domain_draft(self,d:dict):
+        with self.connect() as c:
+            c.execute("INSERT OR REPLACE INTO domain_drafts(id,created_at,payload) VALUES (?,?,?)",
+                (d["id"],d["created_at"],json.dumps(d)))
+
+    def get_domain_draft(self,id:str)->dict|None:
+        with self.connect() as c:
+            row=c.execute("SELECT payload FROM domain_drafts WHERE id=?",(id,)).fetchone()
+            return json.loads(row[0]) if row else None
+
+    def list_domain_drafts(self,limit:int=20)->list[dict]:
+        with self.connect() as c:
+            return [json.loads(row[0]) for row in c.execute("SELECT payload FROM domain_drafts ORDER BY created_at DESC LIMIT ?",(limit,))]
 
     def list_sweeps(self,limit:int=20)->list[dict]:
         with self.connect() as c:

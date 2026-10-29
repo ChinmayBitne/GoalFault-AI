@@ -9,6 +9,7 @@ import httpx
 from pydantic import ValidationError
 from .compiler import (PolicyDraft, compile_messages, compile_schema, draft_from_model,
                        draft_from_repair, repair_messages, repair_schema)
+from .wizard import WIZARD_MAX_OUTPUT, wizard_messages, wizard_schema, yaml_from_reply
 from .models import ProposedScenario
 from .fixtures import policy_catalog, pressure_prompt, tool_catalog
 from .simulator import Sandbox
@@ -189,6 +190,17 @@ class MetaClient:
         except (ValueError,TypeError,KeyError,IndexError,AttributeError,ValidationError) as exc:
             raise MetaError("Model response did not validate against the repair schema") from exc
         return draft,usage_counts(resp.get("usage"))
+
+    def draft_domain(self,description:str)->tuple[str,str,dict]:
+        """Ask Muse for a domain YAML string. Parsing and the quality bar are the caller's job."""
+        resp=self.completion(wizard_messages(description),purpose="domain_draft",
+          reasoning_effort=COMPILE_REASONING_EFFORT,max_completion_tokens=WIZARD_MAX_OUTPUT,
+          response_format={"type":"json_schema","json_schema":{"name":"goalfault_domain","schema":wizard_schema()}})
+        try:
+            yaml_text,explanation=yaml_from_reply(json.loads(resp["choices"][0]["message"]["content"]))
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError) as exc:
+            raise MetaError("Model response did not validate against the domain schema") from exc
+        return yaml_text,explanation,usage_counts(resp.get("usage"))
 
     def run_agent(self,scenario,guardrails:bool=False,run_id:str|None=None,spec:DomainSpec|None=None)->tuple[dict,dict]:
         """Actual Meta-generated tool requests executed only inside the fake Sandbox."""
