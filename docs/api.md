@@ -105,6 +105,16 @@ POST /api/runs/RUN-3F9A0C21B4/replay
 
 This re-executes the recorded tool calls against a fresh state and never calls the model. It shows what the guards would have done with the same actions. It is not a new agent run. Calls that were rejected for bad arguments are skipped. The replay copies `objective` and `pressure_level` from the original run. It is checked against the policies approved *now*, so a replay can catch a call that a newly approved rule forbids.
 
+### Draft a domain
+
+```http
+POST /api/domains/draft
+
+{"text": "A library desk that loans books to synthetic patrons.", "mode": "manual", "yaml": "version: 1\n..."}
+```
+
+`mode` is `manual` (paste the YAML) or `muse` (the model writes it). The reply is a saved draft. It is not installed, and nothing can run in it. `POST /api/domains/drafts/{id}/review` with `{"approved": true}` writes `domains/<name>.yaml` only when the spec parses and passes the quality bar. The new scenarios are saved as proposed, so each one still needs its own approval before a run. A taken name or a clashing seed code is refused.
+
 ### Propose a guard for a failing run
 
 ```http

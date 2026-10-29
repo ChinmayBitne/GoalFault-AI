@@ -10,14 +10,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import ValidationError
-from .models import (ComposeRequest,CompileRequest,DiscoverRequest,PolicyEdit,PolicyReviewRequest,RepairRequest,
-                     ReviewRequest,RunRequest,ReplayRequest,Scenario,SweepRequest)
+from .models import (ComposeRequest,CompileRequest,DiscoverRequest,DomainDraftRequest,DomainReviewRequest,
+                     PolicyEdit,PolicyReviewRequest,RepairRequest,ReviewRequest,RunRequest,ReplayRequest,Scenario,SweepRequest)
 from .compiler import PolicyDraft,check_draft,check_guard
 from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
 from .quality import domain_quality
+from . import spec as spec_module
 from .spec import DEFAULT_DOMAIN,DomainSpec,SpecError,UnknownDomain,get_spec,registry
+from .wizard import check_domain_yaml, install_domain
 from .storage import Storage,utc_now
 
 load_dotenv()
@@ -104,6 +106,50 @@ def domains(include_hidden:bool=False):
     """Domains that pass the quality bar; hidden ones only on request, with the checks they fail."""
     found=[domain_summary(spec) for spec in registry().values()]
     return [d for d in found if include_hidden or d["quality"]["passed"]]
+
+@app.get("/api/domains/drafts")
+def domain_drafts():
+    return database().list_domain_drafts()
+
+@app.post("/api/domains/draft",dependencies=[Depends(require_write)])
+def draft_domain(req:DomainDraftRequest):
+    """Check a spec and save it as a draft. It is not installed, and nothing can run in it yet."""
+    record={"id":"DOM-"+uuid4().hex[:8].upper(),"status":"proposed","source":req.mode,"text":req.text,
+            "created_at":utc_now(),"reviewed_at":None,"usage":{},"estimated_model_cost_usd":0,"explanation":""}
+    if req.mode=="muse":
+        client=meta_client()
+        try: yaml_text,explanation,usage=client.draft_domain(req.text)
+        except MetaError as e: raise meta_failure(e) from e
+        record.update(explanation=explanation,usage=usage,estimated_model_cost_usd=estimate_cost(usage),usage_ids=client.usage_ids)
+    else:
+        if not req.yaml: raise HTTPException(422,"Manual mode needs the domain YAML")
+        yaml_text=req.yaml
+    record["yaml"]=yaml_text
+    record["report"]=check_domain_yaml(yaml_text)
+    database().save_domain_draft(record)
+    return record
+
+@app.post("/api/domains/drafts/{draft_id}/review",dependencies=[Depends(require_write)])
+def review_domain_draft(draft_id:str,req:DomainReviewRequest):
+    record=database().get_domain_draft(draft_id)
+    if not record: raise HTTPException(404,"Unknown domain draft")
+    if record["status"]!="proposed": raise HTTPException(409,"This draft was already reviewed")
+    if not req.approved:
+        record.update(status="rejected",reviewed_at=utc_now())
+        database().save_domain_draft(record)
+        return record
+    record["report"]=check_domain_yaml(record["yaml"])
+    if not record["report"]["ok"]:
+        database().save_domain_draft(record)
+        raise HTTPException(409,"Fix the draft before approving it: "+(record["report"]["errors"][0] if record["report"]["errors"] else "not installable"))
+    try: spec=install_domain(record["yaml"],spec_module.DOMAINS_DIR)
+    except FileExistsError as exc: raise HTTPException(409,f"A domain named {exc} is already installed") from exc
+    except (ValueError,SpecError) as exc: raise HTTPException(409,str(exc)) from exc
+    for scenario in seed_scenarios(spec):
+        if database().get_scenario(scenario.id) is None: database().save_scenario(scenario)
+    record.update(status="approved",reviewed_at=utc_now(),label="draft, human-reviewed")
+    database().save_domain_draft(record)
+    return record
 
 @app.get("/api/usage")
 def usage():

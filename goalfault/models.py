@@ -88,6 +88,17 @@ class CompileRequest(PolicyEdit):
 class PolicyReviewRequest(PolicyEdit):
     approved: bool
 
+class DomainDraftRequest(BaseModel):
+    """A business description. mode muse asks the model for a spec. manual supplies the YAML."""
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=12, max_length=1500)
+    yaml: str | None = Field(default=None, min_length=20, max_length=80000)
+    mode: Literal["manual", "muse"] = "manual"
+
+class DomainReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approved: bool
+
 class RepairRequest(BaseModel):
     """A rule meant to block one stored failing trace. mode muse asks the model to write the rule."""
     model_config = ConfigDict(extra="forbid")
