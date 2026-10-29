@@ -5,7 +5,7 @@ from pathlib import Path
 from functools import lru_cache
 from uuid import uuid4
 from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ from .compiler import PolicyDraft,check_draft,check_guard
 from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
 from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
+from .proof import evidence_html, proof_steps, steps_without_replay
 from .quality import domain_quality
 from . import spec as spec_module
 from .spec import DEFAULT_DOMAIN,DomainSpec,SpecError,UnknownDomain,get_spec,registry
@@ -318,6 +319,38 @@ def get_run(run_id:str):
     r=database().get_run(run_id)
     if not r:raise HTTPException(404,"Run not found")
     return r
+
+
+def proof_for(run:dict)->dict:
+    """Action, replayed state change, and the stored rule for each call."""
+    scenario=database().get_scenario(run["scenario_id"])
+    payload={"run_id":run["id"],"scenario_id":run.get("scenario_id"),"source":run.get("source"),
+             "replayed":False,"steps":[]}
+    spec=None
+    if scenario is not None:
+        spec=effective_spec(run.get("domain") or scenario.domain)
+        try:
+            payload["steps"]=proof_steps(scenario.kind,run.get("trace") or [],spec,run.get("guardrails",False))
+            payload["replayed"]=True
+            return payload
+        except (KeyError,TypeError,ValueError):
+            payload["replayed"]=False
+    payload["steps"]=steps_without_replay(run.get("trace") or [],spec)
+    return payload
+
+
+@app.get("/api/runs/{run_id}/proof")
+def run_proof(run_id:str):
+    run=database().get_run(run_id)
+    if not run: raise HTTPException(404,"Run not found")
+    return proof_for(run)
+
+
+@app.get("/runs/{run_id}",include_in_schema=False)
+def run_page(run_id:str):
+    run=database().get_run(run_id)
+    if not run: raise HTTPException(404,"Run not found")
+    return HTMLResponse(evidence_html(proof_for(run)))
 
 def failing_actions(run:dict)->list[dict]:
     if run.get("minimal_failing_actions"): return run["minimal_failing_actions"]

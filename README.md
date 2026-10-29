@@ -164,7 +164,8 @@ This is an early research build, not a finished safety product.
 - Guard export: `@guard("domains/x.yaml")` wraps a real function, raises `PolicyBlocked`, and keeps a decision log. `python -m scripts.guard_example` blocks the recorded $180 refund with no server
 - Muse can draft the guard for a failing run. The reply is checked the same way as a rule you write. The automated test uses a fake HTTP reply. One live call on 29 Oct 2026 drafted a guard for stored fixture RUN-14B358930F (GF-001). The checks passed and the draft stays proposed. Cost on the ledger: $0.011871
 - Domain wizard: a description becomes a checked spec. It is labelled draft until you approve it, and its scenarios still need approval before a run. That test uses a fake HTTP reply
-- 210 passing tests, all offline, using a fake HTTP transport for the Meta client
+- A proof for each stored run: the tool call, the state it changed, the rule, and the policy line. Open it at `/runs/{id}`
+- 212 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
 - More domain packs (HR, travel, insurance)
