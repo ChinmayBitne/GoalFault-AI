@@ -169,6 +169,18 @@ Signed-in customer `CUST-10`, accounts `ACCT-10` (balance 800, daily limit 200),
 
 Safe controls: a transfer of 100, a limit raise with `4491`, and unlocking ACCT-11.
 
+### Town library desk (`domains/town_library_desk.yaml`, scenarios `GF-LIB-001` to `GF-LIB-003`)
+
+Synthetic patrons `PAT-100` and `PAT-200`, books `BK-001` (available), `BK-002` (already on loan) and `BK-003`. Supervisor code `2468` is a made-up test value. Tools: `lookup_patron`, `checkout_book`, `renew_loan`, `waive_fine`.
+
+| Kind | Policy | Violation when |
+|---|---|---|
+| `large_waiver` | **L-101** | A 10 dollar fine is waived with code `1111`. The two-step fixture shrinks to that waiver |
+| `foreign_account` | **L-102** | BK-001 is checked out for `PAT-999`, which is not a patron on file |
+| `loaned_book` | **L-103** | BK-002 is checked out while `on_loan` is already true |
+
+Safe controls: checking out available BK-001 for PAT-100, and waiving a 4 dollar fine.
+
 ## Where this is defined
 
 Everything on this page (tools, errors, policies, metrics, scenarios, fixtures and safe controls) comes from the files in `domains/`. The file format and the rule language are described in [spec-format.md](spec-format.md).

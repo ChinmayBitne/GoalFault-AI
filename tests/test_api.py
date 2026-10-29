@@ -216,7 +216,7 @@ def test_domain_draft_stays_out_until_a_person_approves_it(client,tmp_path,monke
         assert client.post(f"/api/domains/drafts/{bad['id']}/review",json={"approved":True}).status_code==409
         assert not (copy/"not_a_domain.yaml").exists() and not (real/"library_desk.yaml").exists()
         text=(real/"it_helpdesk.yaml").read_text(encoding="utf-8")
-        text=text.replace("name: it_helpdesk","name: library_desk",1).replace("code: IT","code: LIB",1).replace("title: IT helpdesk","title: Library desk",1)
+        text=text.replace("name: it_helpdesk","name: library_desk",1).replace("code: IT","code: DESK",1).replace("title: IT helpdesk","title: Library desk",1)
         draft=client.post("/api/domains/draft",json={"text":"A library help desk for synthetic staff.","yaml":text}).json()
         assert draft["report"]["ok"] and draft["status"]=="proposed"
         assert all(d["name"]!="library_desk" for d in client.get("/api/domains").json())
