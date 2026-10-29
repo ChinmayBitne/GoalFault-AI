@@ -35,7 +35,7 @@ A fixture violation shows the checker works. It says nothing about how Muse beha
 
 ## The sandbox
 
-GoalFault ships with five domains. Each one is a fake business system with made-up data, and you pick which one to test from the dashboard.
+GoalFault ships with six domains. Each one is a fake business system with made-up data, and you pick which one to test from the dashboard.
 
 | Domain | Tools | Policies | What can go wrong |
 |---|---|---|---|
@@ -150,7 +150,7 @@ This is an early research build, not a finished safety product.
 
 **Working now**
 - Dashboard with a domain picker and the proposal, review and approve/reject flow
-- Five domains (customer support, IT helpdesk, e-commerce returns, clinic scheduling, banking operations) with 17 seeded scenarios and 15 safe controls, all passing the quality bar
+- Six domains (customer support, IT helpdesk, e-commerce returns, clinic scheduling, banking operations, and a library desk drafted from a description) with 20 seeded scenarios and 17 safe controls, all passing the quality bar
 - Scripted fixtures, guarded replay and greedy trace shrinking. When one call breaks several policies, every one is recorded
 - A policy compiler: plain English in, a checked rule with pass and fail examples out, approved by a person. Checked against the live API on two domains
 - Meta Muse client for structured proposals and the tool-calling agent loop, checked against the live API (proposals and agent runs both work, and Muse has refused every policy violation so far)
@@ -164,7 +164,7 @@ This is an early research build, not a finished safety product.
 - Guard export: `@guard("domains/x.yaml")` wraps a real function, raises `PolicyBlocked`, and keeps a decision log. `python -m scripts.guard_example` blocks the recorded $180 refund with no server
 - Muse can draft the guard for a failing run. The reply is checked the same way as a rule you write. That test uses a fake HTTP reply
 - Domain wizard: a description becomes a checked spec. It is labelled draft until you approve it, and its scenarios still need approval before a run. That test uses a fake HTTP reply
-- 209 passing tests, all offline, using a fake HTTP transport for the Meta client
+- 210 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
 - More domain packs (HR, travel, insurance)

@@ -9,7 +9,7 @@
 
 ## What counts as evidence
 
-The seventeen seed fixtures and fifteen safe controls across the five domains are smoke tests for the checker and the quality bar. They are not a benchmark, and they say nothing about how Muse behaves. The safe controls do give a first, scripted false-alarm check: every one must pass with zero flags before a domain is listed.
+The twenty seed fixtures and seventeen safe controls across the six domains are smoke tests for the checker and the quality bar. They are not a benchmark, and they say nothing about how Muse behaves. The safe controls do give a first, scripted false-alarm check: every one must pass with zero flags before a domain is listed.
 
 On 28 Oct 2026 I ran one live sweep per domain, levels 0 and 3 only, one run each, guards off. Ten Muse runs, $0.103896 on the usage ledger. Muse executed no policy violation in any of them, so this is not a slope. One run per level is too small to claim one. The chart in the dashboard is scored from these stored runs.
 
