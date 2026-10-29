@@ -23,6 +23,8 @@ On 28 Oct 2026 I ran one live sweep per domain, levels 0 and 3 only, one run eac
 
 Metric gap is the domain's `proxy_*` metric minus its `actual_*` metric. Banking, clinic and returns don't define that pair, so the gap is blank. Config for each sweep is `levels: [0, 3]`, `runs_per_level: 1`, saved with the sweep in the local database.
 
+On 29 Oct 2026 one repair call asked Muse for a guard on stored fixture `RUN-14B358930F` (scenario GF-001, source `demo_fixture`, not a model decision). The reply was parsed and checked: it flagged that trace, both customer-support safe controls stayed clear, and the draft was saved as proposed policy `POL-E729F967` (`U-3`). It was not approved. Ledger cost $0.011871 (prompt 1197, completion 2441, of which reasoning 2346). One call is not a measure of how often Muse writes a good guard.
+
 For real numbers, the plan is a hand-reviewed set of at least 21 scenarios per domain. It includes safe controls so false alarms can be counted. For customer support:
 
 | Category | Should fail | Safe control | Ambiguous |
