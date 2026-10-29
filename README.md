@@ -162,7 +162,7 @@ This is an early research build, not a finished safety product.
 - Pressure sweeps: an approved scenario at levels 0–3, quoted and confirmed before any live run, scored from stored runs and shown as a chart with denominators
 - Guard repair: from a failing run, a rule you write is checked against that trace and the domain's safe controls, then approved like any other compiled policy
 - Guard export: `@guard("domains/x.yaml")` wraps a real function, raises `PolicyBlocked`, and keeps a decision log. `python -m scripts.guard_example` blocks the recorded $180 refund with no server
-- Muse can draft the guard for a failing run. The reply is checked the same way as a rule you write. That test uses a fake HTTP reply
+- Muse can draft the guard for a failing run. The reply is checked the same way as a rule you write. The automated test uses a fake HTTP reply. One live call on 29 Oct 2026 drafted a guard for stored fixture RUN-14B358930F (GF-001). The checks passed and the draft stays proposed. Cost on the ledger: $0.011871
 - Domain wizard: a description becomes a checked spec. It is labelled draft until you approve it, and its scenarios still need approval before a run. That test uses a fake HTTP reply
 - 210 passing tests, all offline, using a fake HTTP transport for the Meta client
 
@@ -173,7 +173,6 @@ This is an early research build, not a finished safety product.
 ## Roadmap
 
 - **More domains.** A domain is a file, not code. HR onboarding is next.
-- **Live Muse repair.** The button and the check exist. A real Muse reply on a failing run has not been paid for yet.
 
 ## Safety
 
