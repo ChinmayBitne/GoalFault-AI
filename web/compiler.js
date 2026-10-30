@@ -65,8 +65,9 @@ function showDraft(record) {
   openPolicy = record;
   $('draftPanel').hidden = false;
   $('draftTitle').textContent = `${record.policy_id} · ${record.draft.invariant}`;
-  const cost = record.source === 'muse' ? ` · est. $${Number(record.estimated_model_cost_usd || 0).toFixed(5)}` : '';
-  $('draftMeta').textContent = `${record.source === 'muse' ? 'Drafted by Meta Muse' : 'Written by hand'}${cost} · ${new Date(record.created_at).toLocaleString()}`;
+  const cost = Number(record.estimated_model_cost_usd || 0);
+  const who = record.source === 'muse' ? 'Drafted by Meta Muse' : record.source === 'repair' ? 'From a failing run' : 'Written by hand';
+  $('draftMeta').textContent = `${who}${cost ? ` · est. $${cost.toFixed(5)}` : ''} · ${new Date(record.created_at).toLocaleString()}`;
   $('draftPill').className = `pill ${record.status}`;
   $('draftPill').textContent = record.status.toUpperCase();
   $('draftText').textContent = `Policy: ${record.draft.text}${record.draft.explanation ? ` — ${record.draft.explanation}` : ''}`;
