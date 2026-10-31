@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+from copy import deepcopy
 import threading
 from pathlib import Path
 from functools import lru_cache
@@ -11,10 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import ValidationError
 from .models import (ComposeRequest,CompileRequest,DiscoverRequest,DomainDraftRequest,DomainReviewRequest,
-                     PolicyEdit,PolicyReviewRequest,RepairRequest,ReviewRequest,RunRequest,ReplayRequest,Scenario,SweepRequest)
+                     PolicyEdit,PolicyReviewRequest,RepairRequest,ReviewRequest,RunRequest,ReplayRequest,SandboxCallRequest,Scenario,SweepRequest)
 from .compiler import PolicyDraft,check_draft,check_guard
 from .fixtures import interpret_demo,make_scenario,policy_catalog,seed_scenarios,tool_catalog
-from .simulator import fixture_run,replay_actions,minimize_failure,executable_actions
+from .simulator import Sandbox,fixture_run,replay_actions,minimize_failure,executable_actions
 from .meta import MetaClient,MetaError,SpendCapError,estimate_cost,price_rates,spend_cap
 from .proof import evidence_html, proof_steps, steps_without_replay
 from .quality import domain_quality
@@ -239,6 +240,51 @@ def run_scenario(scenario_id:str,req:RunRequest):
     if s.status!="approved": raise HTTPException(409,"Review and approve this scenario before running it")
     try: return execute_run(s,req.mode,req.guardrails)
     except MetaError as e: raise meta_failure(e) from e
+
+@app.post("/api/scenarios/{scenario_id}/sandbox/call", dependencies=[Depends(require_write)])
+def sandbox_call(scenario_id: str, req: SandboxCallRequest):
+    """Execute a single tool call from an external agent against an isolated synthetic sandbox."""
+    s = get_scenario_or_404(scenario_id)
+    if s.status != "approved":
+        raise HTTPException(409, "Review and approve this scenario before running tools against it")
+    spec = effective_spec(s.domain)
+    if spec.tool(req.tool) is None:
+        raise HTTPException(404, f"Tool {req.tool!r} not defined in domain {s.domain!r}")
+    run_id = req.run_id or ("RUN-" + uuid4().hex[:10].upper())
+    existing = database().get_run(run_id) if req.run_id else None
+    sandbox = Sandbox(kind=s.kind, enforce=req.enforce, spec=spec)
+    if existing:
+        for prev in existing.get("trace", []):
+            if prev.get("allowed", False):
+                sandbox.execute(prev["tool"], prev.get("args", {}))
+    before_state = deepcopy(sandbox.state)
+    result = sandbox.execute(req.tool, req.arguments)
+    after_state = deepcopy(sandbox.state)
+    event = sandbox.events[-1]
+    state_delta = {}
+    for k, v in after_state.items():
+        if k not in before_state or before_state[k] != v:
+            if isinstance(v, dict) and isinstance(before_state.get(k), dict):
+                for sub_k, sub_v in v.items():
+                    if sub_k not in before_state[k] or before_state[k][sub_k] != sub_v:
+                        state_delta[f"{k}.{sub_k}"] = {"before": before_state[k].get(sub_k), "after": sub_v}
+            else:
+                state_delta[k] = {"before": before_state.get(k), "after": v}
+    evaluation = sandbox.evaluate()
+    violation = event["matched_policies"][0] if event.get("matched_policies") else None
+    run_record = {
+        "id": run_id, "scenario_id": s.id, "domain": s.domain, "added_policies": [p.id for p in spec.added_policies],
+        "created_at": existing["created_at"] if existing else utc_now(), "kind": "external_agent_call",
+        "source": "external_agent", "guardrails": req.enforce, "objective": s.objective, "pressure_level": s.pressure_level,
+        "usage": {}, "estimated_model_cost_usd": 0.0, "trace": sandbox.events, "final_state": sandbox.state,
+        "evaluation": evaluation, "minimal_failing_actions": minimize_failure(s.kind, sandbox.events, spec) if not req.enforce else []
+    }
+    database().save_run(run_record)
+    return {
+        "run_id": run_id, "scenario_id": s.id, "domain": s.domain, "tool": req.tool, "arguments": req.arguments,
+        "result": result, "allowed": event["allowed"], "state_delta": state_delta, "violation": violation,
+        "evaluation": evaluation, "proof_url": f"/runs/{run_id}"
+    }
 
 # Fallback when no live run has been recorded yet; replaced by the real average once one exists.
 FIRST_RUN_ESTIMATE_USD=0.02

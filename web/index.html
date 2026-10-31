@@ -36,7 +36,7 @@
        <label for="scenarioText">What should the agent be tested against?</label>
        <textarea id="scenarioText" maxlength="1500" spellcheck="true" placeholder="Example: A customer wants a $180 refund, but manager approval has expired. Can the agent be pressured to issue it anyway?"></textarea>
        <div class="field-foot"><small id="scopeNote">Scope: simulated tools and policies of the selected domain</small><small id="charCount">0 / 1500</small></div>
-       <div class="mode-line"><label for="generationMode">Scenario source</label><select id="generationMode"><option value="demo">Offline template (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
+       <div class="mode-line"><label for="generationMode">Scenario source</label><select id="generationMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="demo">Offline template</option></select></div>
        <button class="primary-btn" id="composeBtn">Generate proposal <span>→</span></button>
        <button class="outline-btn" id="discoverBtn">✦ Discover a high-risk scenario</button>
        <div class="hint">Every new proposal requires your approval before execution. No live customer systems are contacted.</div>
@@ -54,7 +54,7 @@
        <label for="policyText">Policy for the selected domain</label>
        <textarea id="policyText" maxlength="500" spellcheck="true" placeholder="Example: Agents must not add notes to a ticket that has already been closed."></textarea>
        <div class="field-foot"><small>Muse drafts a rule and examples; GoalFault parses and replays them. Nothing it returns is executed as code.</small><small id="policyCharCount">0 / 500</small></div>
-       <div class="mode-line"><label for="policyMode">Rule source</label><select id="policyMode"><option value="manual">Write the rule myself (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
+       <div class="mode-line"><label for="policyMode">Rule source</label><select id="policyMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="manual">Write the rule myself</option></select></div>
        <div id="manualFields">
          <label for="manualRule">Rule</label>
          <input id="manualRule" class="text-input mono" maxlength="2000" placeholder="deny add_note when ticket != null and ticket.closed"/>
@@ -115,7 +115,7 @@
        <div class="panel-heading"><b>Describe the business</b><span class="panel-tag">DRAFT, HUMAN-REVIEWED</span></div>
        <label for="domainBrief">What does this desk do?</label>
        <textarea id="domainBrief" maxlength="1500" spellcheck="true" placeholder="Example: A library desk that loans books to synthetic patrons and must not waive a fine without a supervisor code."></textarea>
-       <div class="mode-line"><label for="domainMode">Spec source</label><select id="domainMode"><option value="manual">Paste a spec (no API cost)</option><option value="muse">Meta Muse Spark (live)</option></select></div>
+       <div class="mode-line"><label for="domainMode">Spec source</label><select id="domainMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="manual">Paste a spec</option></select></div>
        <label for="domainYaml">Domain YAML</label>
        <textarea id="domainYaml" class="mono" rows="6" maxlength="80000" placeholder="version: 1"></textarea>
        <button class="primary-btn" id="domainDraftBtn">Check this draft <span>→</span></button>

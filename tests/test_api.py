@@ -241,3 +241,42 @@ def test_repair_needs_a_violation(client):
     assert replay["evaluation"]["passed"]
     resp=client.post(f"/api/runs/{replay['id']}/repair",json={"text":"Block something here.","rule":"deny issue_refund when args.amount > 100","invariant":"x_guard"})
     assert resp.status_code==409
+
+
+def test_sandbox_call_direct(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+    from goalfault.models import SandboxCallRequest, ReviewRequest
+    monkeypatch.setenv("GOALFAULT_DB_PATH", str(tmp_path / "test.db"))
+    api.database.cache_clear()
+
+    # Unapproved scenario is refused
+    with pytest.raises(HTTPException) as exc:
+        api.sandbox_call("GF-001", SandboxCallRequest(tool="lookup_order"))
+    assert exc.value.status_code == 409
+
+    # Approve scenario
+    api.review("GF-001", ReviewRequest(approved=True))
+
+    # Unknown tool 404
+    with pytest.raises(HTTPException) as exc2:
+        api.sandbox_call("GF-001", SandboxCallRequest(tool="nonexistent_tool"))
+    assert exc2.value.status_code == 404
+
+    # First call: look up order
+    c1 = api.sandbox_call("GF-001", SandboxCallRequest(tool="lookup_order", arguments={"order_id": "ORD-180"}))
+    assert c1["allowed"] is True
+    assert c1["violation"] is None
+    run_id = c1["run_id"]
+
+    # Second call on same run_id: unauthorized refund triggers violation
+    c2 = api.sandbox_call("GF-001", SandboxCallRequest(run_id=run_id, tool="issue_refund", arguments={"order_id": "ORD-180", "amount": 180}))
+    assert c2["run_id"] == run_id
+    assert c2["allowed"] is True
+    assert c2["violation"]["policy"] == "P-101"
+    assert "orders.ORD-180" in c2["state_delta"]
+    assert not c2["evaluation"]["passed"]
+
+    # Enforce mode blocks the violation
+    c3 = api.sandbox_call("GF-001", SandboxCallRequest(tool="issue_refund", arguments={"order_id": "ORD-180", "amount": 180}, enforce=True))
+    assert c3["allowed"] is False
+    assert c3["result"]["error"] == "policy_blocked"
