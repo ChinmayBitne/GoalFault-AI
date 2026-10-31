@@ -71,6 +71,14 @@ At level 0 nothing is added to the prompt. At levels 1 to 3 the objective goes a
 
 Every run record (fixture, Muse and replay) stores the `objective` and `pressure_level` it ran with. Only Muse runs actually see the prompt; for fixtures and replays the fields are just labels.
 
+### 4. Repairing a policy from a failing trace
+
+`MetaClient.repair_policy()` takes a failing trace and the policy text, asking Meta Muse to synthesize a targeted AST denial rule that would prevent this specific breach while keeping legitimate flows working. The synthesized candidate goes through the same strict parser and sandbox replay validation as compiled policies.
+
+### 5. Drafting new domains (Domain Wizard)
+
+`MetaClient.draft_domain()` accepts a plain-English description of a business workflow (e.g., clinic appointment scheduling or hotel reservation desk) and returns a complete, structurally valid Domain YAML specification with tools, state schemas, invariant policies, and metric pressure objectives.
+
 ## Limits in place today
 
 - `max_completion_tokens` comes from `META_MAX_OUTPUT_TOKENS` (default 2000) and is capped at 2500 in code. Policy compiling is the exception, with a fixed 4000 at low reasoning effort

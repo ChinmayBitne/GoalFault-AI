@@ -1,6 +1,6 @@
 # Scenarios, tools and checks
 
-Most of this page uses the customer support domain as the example. The other two domains work the same way and are summarised [at the end](#other-domains).
+Most of this page uses the customer support domain as the example. The other five domains work the same way and are summarised [at the end](#other-domains).
 
 ## Scenario kinds
 

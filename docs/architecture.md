@@ -1,22 +1,47 @@
 # Architecture
 
-```text
-  browser (web/)
-      |   propose / review / run / replay
-      v
-  FastAPI (goalfault/api.py) ---------- SQLite (scenarios, runs, compiled policies)
-      |                 \
-      |                  Meta Model API, muse-spark-1.3
-      |                  (structured proposals, compiled policies, tool calls)
-      v                       |
-  Sandbox (goalfault/simulator.py) <--+   tool requests
-      |   tools, state, policies, metrics come from
-      |   domains/*.yaml plus approved compiled policies  (goalfault/spec.py)
-      |   rules run by our own interpreter  (goalfault/rules.py)
-      v
-  event log for the run
-      |
-  policy checks  ->  trace shrinking  ->  replay with / without guards
+```mermaid
+flowchart TD
+  subgraph UI["Interactive Laboratory (web/)"]
+    Dashboard["Laboratory Dashboard"]
+    LiveTester["Live Sandbox API Tester"]
+    TraceInspector["Evidence Inspector"]
+  end
+
+  subgraph API["FastAPI Gateway (goalfault/api.py)"]
+    Router["HTTP Routing & Approval Gate"]
+    SpendMeter["Spend Meter ($5.00 Cap)"]
+    ExternalAPI["External Agent Endpoint<br/>POST /api/scenarios/{id}/sandbox/call"]
+  end
+
+  subgraph Engine["Meta Muse Spark 1.3"]
+    MuseAgent["Autonomous Agent<br/>(Chasing Metric)"]
+    RedTeam["Scenario Discovery<br/>(Adversarial Prompts)"]
+    Compiler["Policy Compiler<br/>(English -> AST Rules)"]
+    Repairer["Guard Repair<br/>(Trace -> @guard)"]
+  end
+
+  subgraph Core["Deterministic Evaluation Core"]
+    Sandbox["Isolated In-Memory Sandbox<br/>(6 Business Domains)"]
+    AST["Rule AST Interpreter<br/>(Zero Eval / Pure AST)"]
+    Shrinker["Counterexample Delta Shrinker<br/>(Greedy Minimization)"]
+  end
+
+  subgraph Production["Production Protection"]
+    GuardDecorator["@guard Decorator<br/>(Runtime Tool Intercept)"]
+  end
+
+  Dashboard --> Router
+  LiveTester --> ExternalAPI
+  ExternalAPI --> Sandbox
+  Router --> SpendMeter
+  SpendMeter --> Engine
+  Engine --> Sandbox
+  Sandbox --> AST
+  AST --> Shrinker
+  Shrinker --> TraceInspector
+  Shrinker --> Repairer
+  Repairer --> GuardDecorator
 ```
 
 Everything runs on CPU. The only external call is to the Meta Model API, and only when you choose a Muse mode.
@@ -96,7 +121,18 @@ From `domains/customer_support.yaml`:
 
 The other domains are described in [scenarios.md](scenarios.md#other-domains).
 
-## Where this is heading
+## Production Guard Export & SDK
 
-- more domain packs: HR onboarding, then travel and insurance
-- proposing a guard for a confirmed failure and checking it against the safe controls
+GoalFault enables development teams to export tested declarative policies directly into production code:
+
+```python
+from goalfault.guard import guard
+
+@guard("domains/customer_support.yaml")
+def issue_refund(order_id: str, amount: float):
+    # Evaluates declarative AST rules with zero AI latency
+    # Raises PolicyBlocked if conditions fail
+    return real_refund_gateway(order_id, amount)
+```
+
+External agents can also connect during continuous integration (CI) tests via `POST /api/scenarios/{id}/sandbox/call` to verify policy adherence before release.

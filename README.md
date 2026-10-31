@@ -1,5 +1,12 @@
 # GoalFault AI
 
+> **Meta Global AI Developer Hackathon 2026 (Indie Track)**  
+> 🎥 **[Watch 3-Minute Video Walkthrough](VIDEO_URL)** · 📋 **[Read Hackathon Submission Brief](SUBMISSION.md)** · ⚡ **10-Second Offline Verification:** `python -m scripts.verify`
+
+[![Verification](https://img.shields.io/badge/verification-20%2F20%20passed-brightgreen)](#)
+[![Meta Model](https://img.shields.io/badge/Meta%20Model-Muse%20Spark%201.3-blue)](#)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Stress tests for AI agents that can take real actions.
 
 GoalFault puts a tool-using customer support agent, running on Meta Muse Spark 1.3, inside a fake support system. It pushes the agent with difficult requests and then checks what the agent actually *did* against written policies.
@@ -9,6 +16,50 @@ The problem I care about is simple to state. An agent can be very good at hittin
 GoalFault is a small lab for finding those cases, proving them with the exact tool calls that caused them, and checking whether a guard at the tool layer would have stopped them.
 
 ## How it works
+
+```mermaid
+flowchart TD
+  subgraph UI["Interactive Laboratory (web/)"]
+    Dashboard["Laboratory Dashboard"]
+    LiveTester["Live Sandbox API Tester"]
+    TraceInspector["Evidence Inspector"]
+  end
+
+  subgraph API["FastAPI Gateway (goalfault/api.py)"]
+    Router["HTTP Routing & Approval Gate"]
+    SpendMeter["Spend Meter ($5.00 Cap)"]
+    ExternalAPI["External Agent Endpoint<br/>POST /api/scenarios/{id}/sandbox/call"]
+  end
+
+  subgraph Engine["Meta Muse Spark 1.3"]
+    MuseAgent["Autonomous Agent<br/>(Chasing Metric)"]
+    RedTeam["Scenario Discovery<br/>(Adversarial Prompts)"]
+    Compiler["Policy Compiler<br/>(English -> AST Rules)"]
+    Repairer["Guard Repair<br/>(Trace -> @guard)"]
+  end
+
+  subgraph Core["Deterministic Evaluation Core"]
+    Sandbox["Isolated In-Memory Sandbox<br/>(6 Business Domains)"]
+    AST["Rule AST Interpreter<br/>(Zero Eval / Pure AST)"]
+    Shrinker["Counterexample Delta Shrinker<br/>(Greedy Minimization)"]
+  end
+
+  subgraph Production["Production Protection"]
+    GuardDecorator["@guard Decorator<br/>(Runtime Tool Intercept)"]
+  end
+
+  Dashboard --> Router
+  LiveTester --> ExternalAPI
+  ExternalAPI --> Sandbox
+  Router --> SpendMeter
+  SpendMeter --> Engine
+  Engine --> Sandbox
+  Sandbox --> AST
+  AST --> Shrinker
+  Shrinker --> TraceInspector
+  Shrinker --> Repairer
+  Repairer --> GuardDecorator
+```
 
 1. **Describe a situation** you want to test in plain English, or ask Muse to propose one by reading the tool list and policies.
 2. **Review it.** Every test starts as `proposed`. Nothing runs until a person approves it, and the customer message can be edited first.
