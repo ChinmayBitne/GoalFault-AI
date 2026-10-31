@@ -165,6 +165,11 @@ This is an early research build, not a finished safety product.
 - Muse can draft the guard for a failing run. The reply is checked the same way as a rule you write. The automated test uses a fake HTTP reply. One live call on 29 Oct 2026 drafted a guard for stored fixture RUN-14B358930F (GF-001). The checks passed and the draft stays proposed. Cost on the ledger: $0.011871
 - Domain wizard: a description becomes a checked spec. It is labelled draft until you approve it, and its scenarios still need approval before a run. That test uses a fake HTTP reply
 - A proof for each stored run: the tool call, the state it changed, the rule, and the policy line. Open it at `/runs/{id}`
+- External agent sandbox API (`POST /api/scenarios/{id}/sandbox/call`): connects any external agent framework to GoalFault's tool sandboxes via HTTP
+- Standalone benchmark script (`python -m examples.test_agent`): tests external agent tool calls and demonstrates `@guard` protection
+- Multi-page tabbed dashboard with topbar contextual guide modal (`ℹ How this works`), pipeline stepper, and run history inspector
+- In-browser Live Sandbox API Tester with dynamic scenario presets (`GF-001`, `GF-002`, `GF-BANK-001`, `GF-CLIN-001`) and 1-click violation/safe toggles
+- Plain-English Executive Story Cards on every trace (Target Metric vs. Corner Cut vs. Rule Broken)
 - 212 passing tests, all offline, using a fake HTTP transport for the Meta client
 
 **Not done yet**
