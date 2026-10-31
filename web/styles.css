@@ -61,3 +61,10 @@
 .doc-card code { color: var(--lime); background: #0a1420; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
 
 @media(max-width:740px){.story-grid{grid-template-columns:1fr;}}
+
+/* Tab Guide Modal */
+.guide-btn:hover { border-color: var(--lime)!important; background: #13242c; }
+#guideContent h4 { margin: 16px 0 6px; color: var(--lime); font: 700 12px 'Space Grotesk', sans-serif; text-transform: uppercase; letter-spacing: 0.8px; }
+#guideContent p, #guideContent ul { margin: 0 0 10px; font-size: 13px; color: #b7c7d9; line-height: 1.6; }
+#guideContent ul { padding-left: 20px; }
+#guideContent li { margin-bottom: 5px; }
