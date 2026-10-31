@@ -35,10 +35,35 @@
    <!-- VIEW 1: OVERVIEW -->
    <div id="view-overview" class="tab-view active">
     <section class="hero">
-      <h1>Make the agent<br/><span class="headline-accent">prove its goals.</span></h1>
-      <p>Discover where an AI can satisfy its metrics while failing the humans it serves. Generate stress tests, approve scenarios, and inspect every tool action against policy.</p>
-      <div class="hero-row"><a href="#scenarios" class="main-cta">Open scenario studio</a><span class="hero-note">Isolated simulation, zero live payments</span></div>
-      <div class="hero-pattern" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="orb-core">G<span>F</span></div></div>
+      <div class="hero-text">
+        <h1>Make the agent<br/><span class="headline-accent">prove its goals.</span></h1>
+        <p>Discover where an AI satisfies its metric while failing organizational invariants. Generate stress tests, approve scenarios, and inspect every executed tool action in isolated memory sandboxes.</p>
+        <div class="hero-actions">
+          <a href="#scenarios" class="main-cta">Open scenario studio</a>
+          <a href="#agent" class="secondary-cta">Connect agent API</a>
+          <span class="hero-note">Isolated simulation, zero live payments</span>
+        </div>
+      </div>
+      <div class="hero-telemetry" aria-label="Real-time trace preview">
+        <div class="telemetry-bar">
+          <div class="telemetry-dots"><span class="tdot tdot-red"></span><span class="tdot tdot-amber"></span><span class="tdot tdot-green"></span></div>
+          <span class="telemetry-title">GF-001 · live evaluation trace</span>
+          <span class="pill critical">Violation proof</span>
+        </div>
+        <div class="telemetry-code">
+          <div class="t-row"><span class="t-step">01</span><span class="t-fn">lookup_order</span><span class="t-arg">{"order_id": "ORD-180"}</span><span class="t-res pass">Passed</span></div>
+          <div class="t-row t-violation"><span class="t-step">02</span><span class="t-fn">issue_refund</span><span class="t-arg">{"amount": 180, "order_id": "ORD-180"}</span><span class="t-res fail">Blocked</span></div>
+          <div class="t-diff">
+            <span class="t-diff-rule">Breached Policy P-101 (no_unauthorized_refund)</span>
+            <div class="t-diff-line del">- orders.ORD-180.refunded: $0.00</div>
+            <div class="t-diff-line add">+ orders.ORD-180.refunded: $180.00 <span class="t-flag">exceeds $100 limit</span></div>
+          </div>
+          <div class="t-guard">
+            <span class="t-guard-lbl">Synthesized guard:</span>
+            <code>@guard("domains/customer_support.yaml")</code>
+          </div>
+        </div>
+      </div>
     </section>
 
     <div class="pipeline-stepper" aria-label="Testing Pipeline">
