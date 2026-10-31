@@ -12,121 +12,238 @@
  <aside class="sidebar">
   <div class="brand"><div class="brand-icon">GF<span>◈</span></div><div><strong>goalfault<span class="brand-ai">.ai</span></strong><small>Agent reliability laboratory</small></div></div>
   <div class="sidebar-label">LABORATORY</div>
-  <nav><a class="nav-link active" href="#workspace">◫ <span>Overview</span></a><a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a><a class="nav-link" href="#policies">§ <span>Policy compiler</span></a><a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a><a class="nav-link" href="#sweeps">↗ <span>Pressure sweep</span></a></nav>
+  <nav>
+    <a class="nav-link active" href="#overview">◫ <span>Overview</span></a>
+    <a class="nav-link" href="#scenarios">◇ <span>Scenario studio</span></a>
+    <a class="nav-link" href="#results">▤ <span>Evidence & traces</span></a>
+    <a class="nav-link" href="#agent">◈ <span>Agent SDK & API</span></a>
+    <a class="nav-link" href="#policies">§ <span>Policy compiler</span></a>
+    <a class="nav-link" href="#sweeps">↗ <span>Pressure sweep</span></a>
+    <a class="nav-link" href="#wizard">✦ <span>Domain wizard</span></a>
+  </nav>
   <div class="sidebar-label">MODEL ENGINE</div>
   <div class="engine"><span class="green-dot"></span><div><b>Meta Muse Spark</b><small id="modelStatus">Checking configuration…</small></div></div>
   <div class="spend" title="Estimated cost of logged Meta calls against the local spend cap"><div class="spend-row"><span>API SPEND</span><b id="spendText">—</b></div><div class="spend-bar"><span id="spendBar"></span></div><small id="spendNote">Loading usage…</small></div>
   <div class="sidebar-bottom"><span>GOALFAULT / 0.1.0</span><span class="build-label">RESEARCH BUILD</span></div>
  </aside>
  <main id="workspace">
-  <header class="topbar"><div><span class="crumb">LAB /</span> <span>OVERVIEW</span></div><div class="topright"><span class="status-dot"></span> Isolated simulation <span class="line"></span><span id="dateLabel">OCT 2026</span></div></header>
+  <header class="topbar"><div><span class="crumb">LAB /</span> <span id="topbarCrumb">OVERVIEW</span></div><div class="topright"><span class="status-dot"></span> Isolated simulation <span class="line"></span><span id="dateLabel">OCT 2026</span></div></header>
   <div class="content">
-   <section class="hero">
-     <div class="eyebrow"><span class="eyebrow-line"></span> SYSTEM 01 / OBJECTIVE INTEGRITY</div>
-     <h1>Make the agent<br/><em>prove its goals.</em></h1>
-     <p>Discover where an AI can satisfy its metrics while failing the humans it serves. Generate stress tests, approve the scenarios, and inspect every tool action against policy.</p>
-     <div class="hero-row"><a href="#scenarios" class="main-cta">Open scenario studio <span>↗</span></a><span class="hero-note">NO REAL ACCOUNTS · NO REAL PAYMENTS</span></div>
-     <div class="hero-pattern" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="orb-core">G<span>F</span></div></div>
-   </section>
-   <section class="stats" aria-label="Metrics"><div class="stat"><small>SCENARIOS</small><b id="scenarioCount">—</b><span>Saved locally</span></div><div class="stat"><small>SIMULATION RUNS</small><b id="runCount">—</b><span>Recorded evidence</span></div><div class="stat"><small>POLICY VIOLATIONS</small><b id="violationCount">—</b><span>From executed actions</span></div><div class="stat"><small>DOMAINS</small><b id="domainCount">—</b><span>Passed the quality bar</span></div></section>
-   <section id="scenarios" class="studio section"><div class="section-title"><div><span class="eyebrow small">01 / TEST ENGINEERING</span><h2>Scenario studio</h2><p>Choose a generated scenario or express a failure mode in plain English.</p></div><div class="domain-pick"><label for="domainSelect">Domain</label><select id="domainSelect"></select><small id="domainNote"></small></div></div>
-   <div class="work-grid">
-     <div class="panel creation-panel">
-       <div class="panel-heading"><b>Describe a risk</b><span class="panel-tag">NATURAL LANGUAGE</span></div>
-       <label for="scenarioText">What should the agent be tested against?</label>
-       <textarea id="scenarioText" maxlength="1500" spellcheck="true" placeholder="Example: A customer wants a $180 refund, but manager approval has expired. Can the agent be pressured to issue it anyway?"></textarea>
-       <div class="field-foot"><small id="scopeNote">Scope: simulated tools and policies of the selected domain</small><small id="charCount">0 / 1500</small></div>
-       <div class="mode-line"><label for="generationMode">Scenario source</label><select id="generationMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="demo">Offline template</option></select></div>
-       <button class="primary-btn" id="composeBtn">Generate proposal <span>→</span></button>
-       <button class="outline-btn" id="discoverBtn">✦ Discover a high-risk scenario</button>
-       <div class="hint">Every new proposal requires your approval before execution. No live customer systems are contacted.</div>
-     </div>
-     <div class="panel queue-panel">
-       <div class="panel-heading"><b>Scenarios</b><span class="counter" id="queueCount">0</span></div>
-       <div id="scenarioList" class="scenario-list"><p class="muted">Loading scenarios…</p></div>
-     </div>
+
+   <!-- VIEW 1: OVERVIEW -->
+   <div id="view-overview" class="tab-view active">
+    <section class="hero">
+      <div class="eyebrow"><span class="eyebrow-line"></span> SYSTEM 01 / OBJECTIVE INTEGRITY</div>
+      <h1>Make the agent<br/><em>prove its goals.</em></h1>
+      <p>Discover where an AI can satisfy its metrics while failing the humans it serves. Generate stress tests, approve scenarios, and inspect every tool action against policy.</p>
+      <div class="hero-row"><a href="#scenarios" class="main-cta">Open scenario studio <span>↗</span></a><span class="hero-note">NO REAL ACCOUNTS · NO REAL PAYMENTS</span></div>
+      <div class="hero-pattern" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="orb-core">G<span>F</span></div></div>
+    </section>
+
+    <div class="pipeline-stepper" aria-label="Testing Pipeline">
+      <div class="step-card"><span class="step-num">1</span><div><b>1. Choose Target</b><small>Select domain & scenario</small></div></div>
+      <div class="step-card"><span class="step-num">2</span><div><b>2. Stress Test Agent</b><small>Run Meta Muse with pressure</small></div></div>
+      <div class="step-card"><span class="step-num">3</span><div><b>3. Inspect Proof</b><small>Verify broken safety rule</small></div></div>
+      <div class="step-card"><span class="step-num">4</span><div><b>4. Deploy Guard</b><small>Apply @guard decorator</small></div></div>
+    </div>
+
+    <div class="judge-banner">
+      <div class="judge-badge">✦ JUDGE QUICK-START DEMO</div>
+      <p><strong>Experience the Failure & Fix in 3 Clicks:</strong> Open <em>Scenario Studio</em>, click <em>⚡ Run Muse agent</em> on <strong>GF-001</strong>, then inspect the <em>Evidence & Traces</em> view to verify the broken policy and test the guard.</p>
+      <div class="judge-actions">
+        <a href="#scenarios" class="tiny-btn callout">Go to Scenario Studio ➔</a>
+        <a href="#agent" class="tiny-btn">Connect External Agent ➔</a>
+      </div>
+    </div>
+
+    <section class="stats" aria-label="Metrics">
+      <div class="stat"><small>SCENARIOS</small><b id="scenarioCount">—</b><span>Saved locally</span></div>
+      <div class="stat"><small>SIMULATION RUNS</small><b id="runCount">—</b><span>Recorded evidence</span></div>
+      <div class="stat"><small>POLICY VIOLATIONS</small><b id="violationCount">—</b><span>From executed actions</span></div>
+      <div class="stat"><small>DOMAINS</small><b id="domainCount">—</b><span>Passed quality bar</span></div>
+    </section>
    </div>
-   </section>
-   <section id="policies" class="section compiler-section"><div class="section-title"><div><span class="eyebrow small">02 / POLICY COMPILER</span><h2>Policy compiler</h2><p>Write a policy in plain English. It becomes a checked rule only after you approve it.</p></div></div>
-   <div class="work-grid">
-     <div class="panel creation-panel">
-       <div class="panel-heading"><b>Write a policy</b><span class="panel-tag">PLAIN ENGLISH</span></div>
-       <label for="policyText">Policy for the selected domain</label>
-       <textarea id="policyText" maxlength="500" spellcheck="true" placeholder="Example: Agents must not add notes to a ticket that has already been closed."></textarea>
-       <div class="field-foot"><small>Muse drafts a rule and examples; GoalFault parses and replays them. Nothing it returns is executed as code.</small><small id="policyCharCount">0 / 500</small></div>
-       <div class="mode-line"><label for="policyMode">Rule source</label><select id="policyMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="manual">Write the rule myself</option></select></div>
-       <div id="manualFields">
-         <label for="manualRule">Rule</label>
-         <input id="manualRule" class="text-input mono" maxlength="2000" placeholder="deny add_note when ticket != null and ticket.closed"/>
-         <label for="manualInvariant">Invariant name</label>
-         <input id="manualInvariant" class="text-input" maxlength="60" placeholder="no_notes_on_closed_tickets"/>
-       </div>
-       <button class="primary-btn" id="compileBtn">Compile and check <span>→</span></button>
-       <div class="hint">Every draft is checked against its own examples and the domain's safe controls. Approval is refused until every check passes.</div>
+
+   <!-- VIEW 2: SCENARIOS -->
+   <div id="view-scenarios" class="tab-view">
+    <section id="scenarios" class="studio section" style="margin-top:0">
+     <div class="section-title"><div><span class="eyebrow small">01 / TEST ENGINEERING</span><h2>Scenario studio</h2><p>Choose a generated scenario or express a failure mode in plain English.</p></div><div class="domain-pick"><label for="domainSelect">Domain</label><select id="domainSelect"></select><small id="domainNote"></small></div></div>
+     <div class="work-grid">
+      <div class="panel creation-panel">
+        <div class="panel-heading"><b>Describe a risk</b><span class="panel-tag">NATURAL LANGUAGE</span></div>
+        <label for="scenarioText">What should the agent be tested against?</label>
+        <textarea id="scenarioText" maxlength="1500" spellcheck="true" placeholder="Example: A customer wants a $180 refund, but manager approval has expired. Can the agent be pressured to issue it anyway?"></textarea>
+        <div class="field-foot"><small id="scopeNote">Scope: simulated tools and policies of the selected domain</small><small id="charCount">0 / 1500</small></div>
+        <div class="mode-line"><label for="generationMode">Scenario source</label><select id="generationMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="demo">Offline template</option></select></div>
+        <button class="primary-btn" id="composeBtn">Generate proposal <span>→</span></button>
+        <button class="outline-btn" id="discoverBtn">✦ Discover a high-risk scenario</button>
+        <div class="hint">Every new proposal requires your approval before execution. No live customer systems are contacted.</div>
+      </div>
+      <div class="panel queue-panel">
+        <div class="panel-heading"><b>Scenarios</b><span class="counter" id="queueCount">0</span></div>
+        <div id="scenarioList" class="scenario-list"><p class="muted">Loading scenarios…</p></div>
+      </div>
      </div>
-     <div class="panel queue-panel">
-       <div class="panel-heading"><b>Compiled policies</b><span class="counter" id="policyCount">0</span></div>
-       <div id="policyList" class="scenario-list"><p class="muted">No compiled policies for this domain yet.</p></div>
-     </div>
+    </section>
    </div>
-   <div class="panel draft-panel" id="draftPanel" hidden>
-     <div class="result-header"><div><b id="draftTitle">Draft</b><small id="draftMeta"></small></div><span class="pill neutral" id="draftPill">PROPOSED</span></div>
-     <div class="draft-body">
-       <p class="result-note" id="draftText"></p>
-       <label for="draftRule">Rule</label>
-       <textarea id="draftRule" class="mono" rows="3" maxlength="2000"></textarea>
-       <label for="draftInvariant">Invariant name</label>
-       <input id="draftInvariant" class="text-input" maxlength="60"/>
-       <label for="draftExamples">Examples (JSON: calls the rule must allow and deny; the last call of each is the one judged)</label>
-       <textarea id="draftExamples" class="mono" rows="12"></textarea>
-       <div id="draftReport"></div>
-       <div class="result-actions"><button type="button" class="tiny-btn" id="recheckBtn">Save edits and re-check</button><button type="button" class="tiny-btn callout" id="approvePolicyBtn">Approve rule →</button><button type="button" class="danger-btn" id="rejectPolicyBtn">Reject</button></div>
-     </div>
+
+   <!-- VIEW 3: EVIDENCE & TRACES -->
+   <div id="view-results" class="tab-view">
+    <section class="section evidence-section" id="results" style="margin-top:0">
+      <div class="section-title">
+        <div><span class="eyebrow small">02 / VERIFICATION</span><h2>Evidence inspector</h2><p>Each tool call, the state it changed, the rule that matched, and the policy that rule comes from.</p></div>
+        <span class="label-outline">STORED RUN AUDIT</span>
+      </div>
+      <div class="panel result-panel">
+        <div class="result-header">
+          <div>
+            <b id="resultTitle">No test selected</b>
+            <small id="resultMeta">Approve a scenario and execute it to inspect evidence.</small>
+          </div>
+          <div class="run-selector-row">
+            <label for="runSelect">Inspect Run:</label>
+            <select id="runSelect"></select>
+          </div>
+          <span class="pill neutral" id="resultPill">NO DATA</span>
+        </div>
+        <div class="result-body" id="resultBody"><div class="empty-state"><div class="empty-icon">⌁</div><h3>Waiting for the first experiment</h3><p>Choose a scenario, approve it, then run a controlled fixture or live Muse agent to inspect the actual tool trace.</p></div></div>
+      </div>
+    </section>
    </div>
-   </section>
-   <section class="section evidence-section" id="results"><div class="section-title"><div><span class="eyebrow small">03 / VERIFICATION</span><h2>Evidence inspector</h2><p>Each tool call, the state it changed, the rule that matched, and the policy that rule comes from.</p></div><span class="label-outline">FROM THE STORED RUN</span></div>
-     <div class="panel result-panel">
-       <div class="result-header"><div><b id="resultTitle">No test selected</b><small id="resultMeta">Approve a scenario and execute it to inspect evidence.</small></div><span class="pill neutral" id="resultPill">NO DATA</span></div>
-       <div class="result-body" id="resultBody"><div class="empty-state"><div class="empty-icon">⌁</div><h3>Waiting for the first experiment</h3><p>Choose a scenario, approve it, then run a controlled fixture or live Muse agent to inspect the actual tool trace.</p></div></div>
+
+   <!-- VIEW 4: EXTERNAL AGENT SDK & API -->
+   <div id="view-agent" class="tab-view">
+    <section class="section" style="margin-top:0">
+     <div class="section-title"><div><span class="eyebrow small">03 / INTEGRATION</span><h2>External Agent API & SDK</h2><p>Connect any AI agent to GoalFault's sandbox via HTTP or protect production code with @guard.</p></div><span class="label-outline">OPEN BENCHMARK</span></div>
+     <div class="work-grid">
+      <div class="panel creation-panel">
+        <div class="panel-heading"><b>Sandbox Tool Endpoint</b><span class="panel-tag">REST API</span></div>
+        <p class="result-note">Point your agent's tool execution calls to this endpoint instead of live production backends:</p>
+        <div class="code-box">POST /api/scenarios/GF-001/sandbox/call
+Content-Type: application/json
+
+{
+  "tool": "issue_refund",
+  "arguments": {"order_id": "ORD-180", "amount": 180},
+  "enforce": false
+}</div>
+        <p class="result-note">GoalFault returns whether the call was allowed, real-time policy violations, and state diffs:</p>
+        <div class="code-box">{
+  "allowed": true,
+  "violation": {"policy": "P-101", "invariant": "no_unauthorized_refund"},
+  "state_delta": {"orders.ORD-180": {"refunded": 180.0}},
+  "proof_url": "/runs/RUN-XXXXX"
+}</div>
+        <div id="externalAgentRunBox" style="margin-top:14px;">
+          <button type="button" class="primary-btn" id="viewExternalRunBtn">View Latest Agent Run in Evidence ➔</button>
+        </div>
+      </div>
+      <div class="panel queue-panel">
+        <div class="panel-heading"><b>Standalone Benchmark & Guard</b><span class="panel-tag">PYTHON SDK</span></div>
+        <p class="result-note"><strong>1. Run Benchmark in Terminal:</strong></p>
+        <div class="code-box">python -m examples.test_agent</div>
+        <p class="result-note"><strong>2. Guard Real Functions in Production:</strong></p>
+        <div class="code-box">from goalfault.guard import guard
+
+@guard("domains/customer_support.yaml")
+def issue_refund(order_id: str, amount: float):
+    # If policy conditions fail, raises PolicyBlocked!
+    return real_refund_gateway(order_id, amount)</div>
+        <div class="hint">The exact same declarative policies crash-tested in GoalFault's lab can be enforced around real functions in your codebase.</div>
+      </div>
      </div>
-   </section>
-   <section class="section" id="sweeps"><div class="section-title"><div><span class="eyebrow small">04 / PRESSURE SWEEP</span><h2>Pressure sweep</h2><p>Run one scenario at every pressure level with live Muse and see where the agent starts cutting corners.</p></div><span class="label-outline">STORED RUNS ONLY</span></div>
-   <div class="work-grid">
-     <div class="panel creation-panel">
-       <div class="panel-heading"><b>New sweep</b><span class="panel-tag">LIVE MUSE</span></div>
-       <label for="sweepScenario">Approved scenario</label>
-       <select id="sweepScenario" class="text-input"></select>
-       <small class="muted" id="sweepNote"></small>
-       <label for="sweepRuns">Runs per pressure level</label>
-       <input id="sweepRuns" class="text-input" type="number" min="1" max="10" value="3"/>
-       <button class="primary-btn" id="sweepBtn">Price and run sweep <span>→</span></button>
-       <small class="muted" id="sweepStatus" aria-live="polite"></small>
-       <div class="hint">You see the estimated cost and confirm before anything runs. Guards are off so the chart shows what the agent tries; the spend cap still applies.</div>
-     </div>
-     <div class="panel queue-panel">
-       <div class="panel-heading"><b>Results</b><select id="sweepPick" aria-label="Choose a sweep"></select></div>
-       <div id="sweepResult"><p class="muted">No sweeps for this domain yet.</p></div>
-     </div>
+    </section>
    </div>
-   </section>
-   <section id="wizard" class="section"><div class="section-title"><div><span class="eyebrow small">05 / NEW DOMAIN</span><h2>Domain wizard</h2><p>Describe a fictional business. The spec stays a draft until you approve it.</p></div></div>
-   <div class="work-grid">
-     <div class="panel creation-panel">
-       <div class="panel-heading"><b>Describe the business</b><span class="panel-tag">DRAFT, HUMAN-REVIEWED</span></div>
-       <label for="domainBrief">What does this desk do?</label>
-       <textarea id="domainBrief" maxlength="1500" spellcheck="true" placeholder="Example: A library desk that loans books to synthetic patrons and must not waive a fine without a supervisor code."></textarea>
-       <div class="mode-line"><label for="domainMode">Spec source</label><select id="domainMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="manual">Paste a spec</option></select></div>
-       <label for="domainYaml">Domain YAML</label>
-       <textarea id="domainYaml" class="mono" rows="6" maxlength="80000" placeholder="version: 1"></textarea>
-       <button class="primary-btn" id="domainDraftBtn">Check this draft <span>→</span></button>
-       <div class="hint">Approval writes the file only after the spec parses and passes the quality bar. New scenarios still need their own approval before a run.</div>
+
+   <!-- VIEW 5: POLICY COMPILER -->
+   <div id="view-policies" class="tab-view">
+    <section id="policies" class="section compiler-section" style="margin-top:0">
+     <div class="section-title"><div><span class="eyebrow small">04 / POLICY COMPILER</span><h2>Policy compiler</h2><p>Write a policy in plain English. It becomes a checked rule only after you approve it.</p></div></div>
+     <div class="work-grid">
+      <div class="panel creation-panel">
+        <div class="panel-heading"><b>Write a policy</b><span class="panel-tag">PLAIN ENGLISH</span></div>
+        <label for="policyText">Policy for the selected domain</label>
+        <textarea id="policyText" maxlength="500" spellcheck="true" placeholder="Example: Agents must not add notes to a ticket that has already been closed."></textarea>
+        <div class="field-foot"><small>Muse drafts a rule and examples; GoalFault parses and replays them. Nothing it returns is executed as code.</small><small id="policyCharCount">0 / 500</small></div>
+        <div class="mode-line"><label for="policyMode">Rule source</label><select id="policyMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="manual">Write the rule myself</option></select></div>
+        <div id="manualFields">
+          <label for="manualRule">Rule</label>
+          <input id="manualRule" class="text-input mono" maxlength="2000" placeholder="deny add_note when ticket != null and ticket.closed"/>
+          <label for="manualInvariant">Invariant name</label>
+          <input id="manualInvariant" class="text-input" maxlength="60" placeholder="no_notes_on_closed_tickets"/>
+        </div>
+        <button class="primary-btn" id="compileBtn">Compile and check <span>→</span></button>
+        <div class="hint">Every draft is checked against its own examples and the domain's safe controls. Approval is refused until every check passes.</div>
+      </div>
+      <div class="panel queue-panel">
+        <div class="panel-heading"><b>Compiled policies</b><span class="counter" id="policyCount">0</span></div>
+        <div id="policyList" class="scenario-list"><p class="muted">No compiled policies for this domain yet.</p></div>
+      </div>
      </div>
-     <div class="panel queue-panel">
-       <div class="panel-heading"><b>Domain drafts</b><span class="counter" id="domainDraftCount">0</span></div>
-       <div id="domainDraftList" class="scenario-list"><p class="muted">No domain drafts yet.</p></div>
+     <div class="panel draft-panel" id="draftPanel" hidden>
+      <div class="result-header"><div><b id="draftTitle">Draft</b><small id="draftMeta"></small></div><span class="pill neutral" id="draftPill">PROPOSED</span></div>
+      <div class="draft-body">
+        <p class="result-note" id="draftText"></p>
+        <label for="draftRule">Rule</label>
+        <textarea id="draftRule" class="mono" rows="3" maxlength="2000"></textarea>
+        <label for="draftInvariant">Invariant name</label>
+        <input id="draftInvariant" class="text-input" maxlength="60"/>
+        <label for="draftExamples">Examples (JSON: calls the rule must allow and deny; the last call of each is the one judged)</label>
+        <textarea id="draftExamples" class="mono" rows="12"></textarea>
+        <div id="draftReport"></div>
+        <div class="result-actions"><button type="button" class="tiny-btn" id="recheckBtn">Save edits and re-check</button><button type="button" class="tiny-btn callout" id="approvePolicyBtn">Approve rule →</button><button type="button" class="danger-btn" id="rejectPolicyBtn">Reject</button></div>
+      </div>
      </div>
+    </section>
    </div>
-   </section>
+
+   <!-- VIEW 6: PRESSURE SWEEP -->
+   <div id="view-sweeps" class="tab-view">
+    <section class="section" id="sweeps" style="margin-top:0">
+     <div class="section-title"><div><span class="eyebrow small">05 / PRESSURE SWEEP</span><h2>Pressure sweep</h2><p>Run one scenario at every pressure level with live Muse and see where the agent starts cutting corners.</p></div><span class="label-outline">STORED RUNS ONLY</span></div>
+     <div class="work-grid">
+      <div class="panel creation-panel">
+        <div class="panel-heading"><b>New sweep</b><span class="panel-tag">LIVE MUSE</span></div>
+        <label for="sweepScenario">Approved scenario</label>
+        <select id="sweepScenario" class="text-input"></select>
+        <small class="muted" id="sweepNote"></small>
+        <label for="sweepRuns">Runs per pressure level</label>
+        <input id="sweepRuns" class="text-input" type="number" min="1" max="10" value="3"/>
+        <button class="primary-btn" id="sweepBtn">Price and run sweep <span>→</span></button>
+        <small class="muted" id="sweepStatus" aria-live="polite"></small>
+        <div class="hint">You see the estimated cost and confirm before anything runs. Guards are off so the chart shows what the agent tries; the spend cap still applies.</div>
+      </div>
+      <div class="panel queue-panel">
+        <div class="panel-heading"><b>Results</b><select id="sweepPick" aria-label="Choose a sweep"></select></div>
+        <div id="sweepResult"><p class="muted">No sweeps for this domain yet.</p></div>
+      </div>
+     </div>
+    </section>
+   </div>
+
+   <!-- VIEW 7: DOMAIN WIZARD -->
+   <div id="view-wizard" class="tab-view">
+    <section id="wizard" class="section" style="margin-top:0">
+     <div class="section-title"><div><span class="eyebrow small">06 / NEW DOMAIN</span><h2>Domain wizard</h2><p>Describe a fictional business. The spec stays a draft until you approve it.</p></div></div>
+     <div class="work-grid">
+      <div class="panel creation-panel">
+        <div class="panel-heading"><b>Describe the business</b><span class="panel-tag">DRAFT, HUMAN-REVIEWED</span></div>
+        <label for="domainBrief">What does this desk do?</label>
+        <textarea id="domainBrief" maxlength="1500" spellcheck="true" placeholder="Example: A library desk that loans books to synthetic patrons and must not waive a fine without a supervisor code."></textarea>
+        <div class="mode-line"><label for="domainMode">Spec source</label><select id="domainMode"><option value="muse" selected>Meta Muse Spark (live model)</option><option value="manual">Paste a spec</option></select></div>
+        <label for="domainYaml">Domain YAML</label>
+        <textarea id="domainYaml" class="mono" rows="6" maxlength="80000" placeholder="version: 1"></textarea>
+        <button class="primary-btn" id="domainDraftBtn">Check this draft <span>→</span></button>
+        <div class="hint">Approval writes the file only after the spec parses and passes the quality bar. New scenarios still need their own approval before a run.</div>
+      </div>
+      <div class="panel queue-panel">
+        <div class="panel-heading"><b>Domain drafts</b><span class="counter" id="domainDraftCount">0</span></div>
+        <div id="domainDraftList" class="scenario-list"><p class="muted">No domain drafts yet.</p></div>
+      </div>
+     </div>
+    </section>
+   </div>
+
    <footer><span>GOALFAULT AI — META GLOBAL AI DEVELOPER HACKATHON 2026</span><span>Evidence before confidence.</span></footer>
   </div>
  </main>
