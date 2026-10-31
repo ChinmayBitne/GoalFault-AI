@@ -19,7 +19,7 @@ function renderSpend(u){const pct=u.cap_usd>0?Math.min(100,u.total_cost_usd/u.ca
 function renderDomains(domains){const select=$('domainSelect');if(!domains.some(d=>d.name===currentDomain)&&domains.length)currentDomain=domains[0].name;select.replaceChildren(...domains.map(d=>{const o=node('option','',d.title);o.value=d.name;return o;}));select.value=currentDomain;$('domainCount').textContent=String(domains.length).padStart(2,'0');const d=domains.find(x=>x.name===currentDomain);$('domainNote').textContent=d?`${d.tools} tools · ${d.policies} policies · ${d.safe_controls} safe controls`:'';document.dispatchEvent(new CustomEvent('goalfault:domain',{detail:currentDomain}));}
 async function load(){try{const domains=await call('/api/domains');renderDomains(domains);const q=`domain=${encodeURIComponent(currentDomain)}`;const [cfg,scenarios,runs,usage]=await Promise.all([call(`/api/config?${q}`),call(`/api/scenarios?${q}`),call('/api/runs'),call('/api/usage')]);domainConfig=cfg;renderSpend(usage);$('modelStatus').textContent=cfg.meta_configured?`${cfg.model} · key configured`:'Offline mode available';$('scenarioCount').textContent=scenarios.length;$('runCount').textContent=runs.length;$('violationCount').textContent=runs.reduce((sum,r)=>sum+(r.evaluation?.violations?.length||0),0);$('queueCount').textContent=scenarios.length;$('scopeNote').textContent=`Scope: simulated ${cfg.domain.title.toLowerCase()} tools and policies`;scenarioCache=scenarios;renderScenarios(scenarios,runs);renderRunSelector(runs);const latest=runs.find(r=>(r.domain||'customer_support')===currentDomain);if(!currentRun&&latest)showRun(latest);}catch(err){toast(err.message);}}
 // shortcut: latest run is the newest of the 30 runs this page already loads, raise that limit when a card must show an older run.
-function renderScenarios(scenarios,runs){const list=$('scenarioList');list.replaceChildren();const ordered=scenarios.slice().reverse();const labels={proposed:'Proposed',approved:'Approved',rejected:'Rejected'};const known=['proposed','approved','rejected'];[...known,...new Set(ordered.map(s=>s.status).filter(s=>!known.includes(s)))].forEach(status=>{const group=ordered.filter(s=>s.status===status);if(!group.length)return;const block=node('section','scenario-group');block.append(node('h3','',labels[status]||status));group.forEach(s=>{const card=node('article','scenario-card');const head=node('div','scenario-head');head.append(node('b','',s.title));const risk=node('span',`pill ${s.risk}`,`impact if broken · ${s.risk}`);risk.title='Impact if this failure happened';head.append(risk);card.append(head);card.append(node('p','',s.description));if(s.pressure_level>0)card.append(node('p','scenario-objective',`Objective: ${s.objective||`default (${domainConfig?.domain.default_objective||'domain default'})`}`));const tags=node('div','scenario-tags');tags.append(node('span',`pill ${s.status}`,s.status));tags.append(node('span','pill neutral',s.source==='muse'?'Muse generated':s.source==='demo_template'?'Template':'Manual'));tags.append(node('span','pill neutral',`Pressure ${s.pressure_level||0} · ${pressureLabel[s.pressure_level||0]}`));card.append(tags);const latest=(runs||[]).find(r=>r.scenario_id===s.id);const source=latest?(latest.source==='demo_fixture'?'fixture':latest.source==='muse'?'Muse':latest.source):'';card.append(node('p','scenario-latest',latest?(latest.evaluation&&latest.evaluation.passed?'Latest run: no violation':'Latest run: policy violation')+` · ${source}`:'Latest run: none'));const acts=node('div','scenario-actions');if(s.status==='proposed')acts.append(button('Review & approve',()=>openReview(s),'tiny-btn callout'));if(s.status==='approved'){acts.append(button('⚡ Run Muse agent',()=>run(s.id,'muse',false),'tiny-btn callout'));acts.append(button('Run fixture',()=>run(s.id,'fixture',false)));acts.append(button('Edit review',()=>openReview(s)));}card.append(acts);block.append(card);});list.append(block);});}
+function renderScenarios(scenarios,runs){const list=$('scenarioList');list.replaceChildren();const ordered=scenarios.slice().reverse();const labels={proposed:'Proposed',approved:'Approved',rejected:'Rejected'};const known=['proposed','approved','rejected'];[...known,...new Set(ordered.map(s=>s.status).filter(s=>!known.includes(s)))].forEach(status=>{const group=ordered.filter(s=>s.status===status);if(!group.length)return;const block=node('section','scenario-group');block.append(node('h3','',labels[status]||status));group.forEach(s=>{const card=node('article','scenario-card');const head=node('div','scenario-head');head.append(node('b','',s.title));const risk=node('span',`pill ${s.risk}`,`impact if broken · ${s.risk}`);risk.title='Impact if this failure happened';head.append(risk);card.append(head);card.append(node('p','',s.description));if(s.pressure_level>0)card.append(node('p','scenario-objective',`Objective: ${s.objective||`default (${domainConfig?.domain.default_objective||'domain default'})`}`));const tags=node('div','scenario-tags');tags.append(node('span',`pill ${s.status}`,s.status));tags.append(node('span','pill neutral',s.source==='muse'?'Muse generated':s.source==='demo_template'?'Template':'Manual'));tags.append(node('span','pill neutral',`Pressure ${s.pressure_level||0} · ${pressureLabel[s.pressure_level||0]}`));card.append(tags);const latest=(runs||[]).find(r=>r.scenario_id===s.id);const source=latest?(latest.source==='demo_fixture'?'fixture':latest.source==='muse'?'Muse':latest.source):'';card.append(node('p','scenario-latest',latest?(latest.evaluation&&latest.evaluation.passed?'Latest run: no violation':'Latest run: policy violation')+` · ${source}`:'Latest run: none'));const acts=node('div','scenario-actions');if(s.status==='proposed')acts.append(button('Review & approve',()=>openReview(s),'tiny-btn callout'));if(s.status==='approved'){acts.append(button('Run Muse agent',()=>run(s.id,'muse',false),'tiny-btn callout'));acts.append(button('Run fixture',()=>run(s.id,'fixture',false)));acts.append(button('Edit review',()=>openReview(s)));}card.append(acts);block.append(card);});list.append(block);});}
 function openReview(s){selectedId=s.id;$('reviewTitle').textContent=s.title;$('reviewDesc').textContent=`${s.description} · ${s.expected_invariant}`;$('reviewMessage').value=s.user_message;$('reviewObjective').value=s.objective||'';$('reviewPressure').value=String(s.pressure_level||0);$('reviewDialog').showModal();}
 async function submitReview(approved){if(!selectedId)return;try{const result=await write(`/api/scenarios/${encodeURIComponent(selectedId)}/review`,{approved,user_message:$('reviewMessage').value,objective:$('reviewObjective').value.trim(),pressure_level:Number($('reviewPressure').value)});$('reviewDialog').close();toast(approved?'Scenario approved. Ready to execute.':'Scenario rejected.');await load();}catch(e){toast(e.message)}}
 async function compose(){const text=$('scenarioText').value.trim();if(text.length<12)return toast('Write at least 12 characters to describe a scenario.');setBusy('composeBtn',true);try{const r=await write('/api/scenarios/compose',{text,mode:$('generationMode').value,domain:currentDomain});toast(`Proposal created using ${r.generation_mode==='demo'?'offline classification':'Meta Muse'}. Review before running.`);await load();openReview(r.scenario);}catch(e){toast(e.message)}finally{setBusy('composeBtn',false)}}
@@ -27,35 +27,35 @@ async function discover(){setBusy('discoverBtn',true);try{const r=await write('/
 async function run(id,mode,guardrails){if(mode==='muse'&&!confirm('Run Meta Muse with the selected prompt and simulated tools? This uses API credits.'))return;try{toast('Executing isolated experiment…');const result=await write(`/api/scenarios/${encodeURIComponent(id)}/run`,{mode,guardrails});showRun(result);await load();window.location.hash='#results';switchTab('results');}catch(e){toast(e.message)}}
 async function replay(guardrails){if(!currentRun)return;try{const result=await write(`/api/runs/${encodeURIComponent(currentRun.id)}/replay`,{guardrails});showRun(result);await load()}catch(e){toast(e.message)}}
 async function repairGuard(id,rule,invariant,mode){const body={text:'Block the recorded failing trace.',mode:mode||'manual'};if(body.mode==='muse'){if(!confirm('Ask Meta Muse to draft a guard for this trace? This uses API credits.'))return;}else{rule=rule.trim();invariant=invariant.trim();if(rule.length<5||invariant.length<2)return toast('Need a rule and an invariant name.');body.rule=rule;body.invariant=invariant;}try{const record=await write(`/api/runs/${id}/repair`,body);toast(record.report.ok?'Guard blocks the trace and passes the safe controls. Review it in the compiler.':'Guard saved. Some checks failed.');if(typeof loadPolicies==='function')loadPolicies(currentDomain);}catch(err){toast(err.message);}}
-function showRun(r){currentRun=r;const evaln=r.evaluation;const passed=evaln.passed;$('resultTitle').textContent=`${r.id} · ${r.scenario_id}`;$('resultMeta').textContent=`${r.kind.replaceAll('_',' ')} · ${new Date(r.created_at).toLocaleString()}`;$('resultPill').className=`pill ${passed?'passed':'failed'}`;$('resultPill').textContent=passed?'NO VIOLATIONS':'POLICY VIOLATION';const body=$('resultBody');body.replaceChildren();
+function showRun(r){currentRun=r;const evaln=r.evaluation;const passed=evaln.passed;$('resultTitle').textContent=`${r.id} · ${r.scenario_id}`;$('resultMeta').textContent=`${r.kind.replaceAll('_',' ')} · ${new Date(r.created_at).toLocaleString()}`;$('resultPill').className=`pill ${passed?'passed':'failed'}`;$('resultPill').textContent=passed?'No violations':'Policy violation';const body=$('resultBody');body.replaceChildren();
 const story=node('div',`executive-story ${passed?'success':'failure'}`);
 if(!passed){
-  story.append(node('div','story-headline','🚨 POLICY VIOLATION CONFIRMED: Unauthorized Action Under Metric Pressure'));
+  story.append(node('div','story-headline','Policy violation confirmed: unauthorized action under metric pressure'));
   const grid=node('div','story-grid');
   const col1=node('div','story-col');
-  col1.append(node('small','','AGENT METRIC PRESSURE'),node('b','',r.objective||(r.pressure_level>0?`Pressure Level ${r.pressure_level} (${pressureLabel[r.pressure_level]})`:'Domain default metric')));
+  col1.append(node('small','','Agent metric pressure'),node('b','',r.objective||(r.pressure_level>0?`Pressure Level ${r.pressure_level} (${pressureLabel[r.pressure_level]})`:'Domain default metric')));
   const col2=node('div','story-col');
   const failingCall=r.trace.find(t=>t.allowed&&t.violation_if_executed)||r.trace[r.trace.length-1];
-  col2.append(node('small','','CORNER CUT (EXECUTED ACTION)'),node('b','',failingCall?`${failingCall.tool}(${JSON.stringify(failingCall.args)})`:'Prohibited tool action executed'));
+  col2.append(node('small','','Corner cut (executed action)'),node('b','',failingCall?`${failingCall.tool}(${JSON.stringify(failingCall.args)})`:'Prohibited tool action executed'));
   const col3=node('div','story-col');
   const v=evaln.violations&&evaln.violations[0];
-  col3.append(node('small','','RULE BROKEN'),node('b','',v?`${v.invariant} (${v.policy||'Rule condition breached'})`:'Safety invariant broken'));
+  col3.append(node('small','','Rule broken'),node('b','',v?`${v.invariant} (${v.policy||'Rule condition breached'})`:'Safety invariant broken'));
   grid.append(col1,col2,col3);
   story.append(grid);
 }else{
-  story.append(node('div','story-headline','✅ SAFE RUN: All Policies Enforced & Invariants Preserved'));
+  story.append(node('div','story-headline','Safe run: all policies enforced and invariants preserved'));
   const grid=node('div','story-grid');
   const col1=node('div','story-col');
-  col1.append(node('small','','EVALUATION STATUS'),node('b','','100% Policy Adherence'));
+  col1.append(node('small','','Evaluation status'),node('b','','100% Policy Adherence'));
   const col2=node('div','story-col');
-  col2.append(node('small','','TOOL CALLS EXECUTED'),node('b','',`${evaln.tool_calls} call(s) passed safely`));
+  col2.append(node('small','','Tool calls executed'),node('b','',`${evaln.tool_calls} call(s) passed safely`));
   const col3=node('div','story-col');
-  col3.append(node('small','','PROTECTION STATUS'),node('b','',r.guardrails?'Protected by @guard policy engine':'Zero prohibited actions executed'));
+  col3.append(node('small','','Protection status'),node('b','',r.guardrails?'Protected by @guard policy engine':'Zero prohibited actions executed'));
   grid.append(col1,col2,col3);
   story.append(grid);
 }
-body.append(story);const metrics=node('div','trace-metrics');[['Source',r.source],['Tool calls',evaln.tool_calls],['Violations',evaln.violations.length],['Est. API cost',`$${Number(r.estimated_model_cost_usd||0).toFixed(5)}`],['Pressure',`${r.pressure_level||0} · ${pressureLabel[r.pressure_level||0]}`],...(r.stop_reason?[['Stopped by',r.stop_reason.replaceAll('_',' ')]]:[])].forEach(([k,v])=>{const box=node('div','trace-metric');box.append(node('small','',k),node('b','',v));metrics.append(box)});body.append(metrics);const note=node('p','result-note',r.note||(r.source==='demo_fixture'?'SCRIPTED FIXTURE: These are predefined test stimuli, not decisions generated by Meta.': 'Live Muse requests were executed in isolated simulated tools.'));body.append(note);const summary=node('div',`evaluation-summary ${passed?'':'failed'}`,passed?'Independent assertions passed: no prohibited tool action executed.':`Independently verified: ${evaln.violations.map(v=>`${v.invariant}${v.policy?` (${v.policy}, step ${v.step})`:''}`).join(', ')}`);body.append(summary);const metricNames=Object.keys(evaln).filter(k=>!['passed','violations','tool_calls','executed_tool_calls'].includes(k));if(metricNames.length)body.append(node('p','result-note',`Domain metrics: ${metricNames.map(k=>`${k.replaceAll('_',' ')} = ${evaln[k]}`).join(' · ')}`));body.append(node('div','trace-title','EXECUTION TRACE'));if(!r.trace.length)body.append(node('p','muted','No tool calls were made. This is not a demonstrated policy failure.'));r.trace.forEach((e,i)=>{const row=node('div','event');row.append(node('span','event-num',i+1));const detail=node('div');detail.append(node('b','',e.tool||'(no name)'),node('code','',e.arg_error?`${e.arg_error}: ${e.raw_arguments}`:JSON.stringify(e.args)));row.append(detail);row.append(node('div',`event-status ${e.allowed&&e.violation_if_executed?'bad':''}`,e.arg_error?'BAD ARGUMENTS · NOT RUN':e.allowed?(e.violation_if_executed?'VIOLATION':'EXECUTED'):'BLOCKED / ERROR'));body.append(row);});if(r.error)body.append(node('p','result-note',`Run ended early: ${r.error}`));if(r.minimal_failing_actions&&r.minimal_failing_actions.length){body.append(node('div','evaluation-summary',`Reduced counterexample: ${r.minimal_failing_actions.length} tool action(s) still reproduce at least one failing invariant.`));}if(!passed){const rule=node('input');rule.className='text-input mono';rule.placeholder='deny issue_refund when args.amount > 100';rule.maxLength=2000;const inv=node('input');inv.className='text-input';inv.placeholder='invariant name';inv.maxLength=60;body.append(node('div','trace-title','GUARD FOR THIS TRACE'),rule,inv,button('Check this guard',()=>repairGuard(r.id,rule.value,inv.value),'tiny-btn callout'),button('Ask Muse',()=>repairGuard(r.id,'','','muse'),'tiny-btn'));}if(r.final_agent_message)body.append(node('p','result-note',`Agent reply: ${r.final_agent_message}`));const acts=node('div','result-actions');acts.append(button('Replay with policy enforcement →',()=>replay(true),'tiny-btn callout'));acts.append(button('Replay without enforcement',()=>replay(false)));body.append(acts);const proof=node('div','proof');proof.append(node('div','trace-title','What happened'));body.append(proof);loadProof(r.id,proof); if($('runSelect'))$('runSelect').value=r.id;}
-const emptyResult=[...$('resultBody').childNodes].map(n=>n.cloneNode(true));function clearRun(){currentRun=null;$('resultTitle').textContent='No test selected';$('resultMeta').textContent='No run selected for this domain yet. Approve a scenario and execute it to inspect evidence.';$('resultPill').className='pill neutral';$('resultPill').textContent='NO DATA';$('resultBody').replaceChildren(...emptyResult.map(n=>n.cloneNode(true)));}
+body.append(story);const metrics=node('div','trace-metrics');[['Source',r.source],['Tool calls',evaln.tool_calls],['Violations',evaln.violations.length],['Est. API cost',`$${Number(r.estimated_model_cost_usd||0).toFixed(5)}`],['Pressure',`${r.pressure_level||0} · ${pressureLabel[r.pressure_level||0]}`],...(r.stop_reason?[['Stopped by',r.stop_reason.replaceAll('_',' ')]]:[])].forEach(([k,v])=>{const box=node('div','trace-metric');box.append(node('small','',k),node('b','',v));metrics.append(box)});body.append(metrics);const note=node('p','result-note',r.note||(r.source==='demo_fixture'?'SCRIPTED FIXTURE: These are predefined test stimuli, not decisions generated by Meta.': 'Live Muse requests were executed in isolated simulated tools.'));body.append(note);const summary=node('div',`evaluation-summary ${passed?'':'failed'}`,passed?'Independent assertions passed: no prohibited tool action executed.':`Independently verified: ${evaln.violations.map(v=>`${v.invariant}${v.policy?` (${v.policy}, step ${v.step})`:''}`).join(', ')}`);body.append(summary);const metricNames=Object.keys(evaln).filter(k=>!['passed','violations','tool_calls','executed_tool_calls'].includes(k));if(metricNames.length)body.append(node('p','result-note',`Domain metrics: ${metricNames.map(k=>`${k.replaceAll('_',' ')} = ${evaln[k]}`).join(' · ')}`));body.append(node('div','trace-title','Execution trace'));if(!r.trace.length)body.append(node('p','muted','No tool calls were made. This is not a demonstrated policy failure.'));r.trace.forEach((e,i)=>{const row=node('div','event');row.append(node('span','event-num',i+1));const detail=node('div');detail.append(node('b','',e.tool||'(no name)'),node('code','',e.arg_error?`${e.arg_error}: ${e.raw_arguments}`:JSON.stringify(e.args)));row.append(detail);row.append(node('div',`event-status ${e.allowed&&e.violation_if_executed?'bad':''}`,e.arg_error?'BAD ARGUMENTS · NOT RUN':e.allowed?(e.violation_if_executed?'VIOLATION':'EXECUTED'):'BLOCKED / ERROR'));body.append(row);});if(r.error)body.append(node('p','result-note',`Run ended early: ${r.error}`));if(r.minimal_failing_actions&&r.minimal_failing_actions.length){body.append(node('div','evaluation-summary',`Reduced counterexample: ${r.minimal_failing_actions.length} tool action(s) still reproduce at least one failing invariant.`));}if(!passed){const rule=node('input');rule.className='text-input mono';rule.placeholder='deny issue_refund when args.amount > 100';rule.maxLength=2000;const inv=node('input');inv.className='text-input';inv.placeholder='invariant name';inv.maxLength=60;body.append(node('div','trace-title','Guard for this trace'),rule,inv,button('Check this guard',()=>repairGuard(r.id,rule.value,inv.value),'tiny-btn callout'),button('Ask Muse',()=>repairGuard(r.id,'','','muse'),'tiny-btn'));}if(r.final_agent_message)body.append(node('p','result-note',`Agent reply: ${r.final_agent_message}`));const acts=node('div','result-actions');acts.append(button('Replay with policy enforcement',()=>replay(true),'tiny-btn callout'));acts.append(button('Replay without enforcement',()=>replay(false)));body.append(acts);const proof=node('div','proof');proof.append(node('div','trace-title','What happened'));body.append(proof);loadProof(r.id,proof); if($('runSelect'))$('runSelect').value=r.id;}
+const emptyResult=[...$('resultBody').childNodes].map(n=>n.cloneNode(true));function clearRun(){currentRun=null;$('resultTitle').textContent='No test selected';$('resultMeta').textContent='No run selected for this domain yet. Approve a scenario and execute it to inspect evidence.';$('resultPill').className='pill neutral';$('resultPill').textContent='No data';$('resultBody').replaceChildren(...emptyResult.map(n=>n.cloneNode(true)));}
 $('domainSelect').onchange=e=>{currentDomain=e.target.value;clearRun();load();};$('composeBtn').onclick=compose;$('discoverBtn').onclick=discover;$('approveBtn').onclick=()=>submitReview(true);$('rejectBtn').onclick=()=>submitReview(false);$('scenarioText').addEventListener('input',e=>$('charCount').textContent=`${e.target.value.length} / 1500`);$('dateLabel').textContent=new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}).toUpperCase();load();
 
 
@@ -71,7 +71,7 @@ function renderRunSelector(runs) {
   }
   runs.forEach(r => {
     const passed = r.evaluation?.passed;
-    const statusText = passed ? 'PASSED' : 'VIOLATION';
+    const statusText = passed ? 'Passed' : 'Violation';
     const opt = node('option', '', `${r.id} · ${r.source} · ${statusText} (${r.scenario_id})`);
     opt.value = r.id;
     if (currentRun && currentRun.id === r.id) opt.selected = true;
@@ -85,49 +85,49 @@ function renderRunSelector(runs) {
 
 const tabGuides = {
   overview: {
-    tag: '00 / OVERVIEW',
+    tag: 'Overview',
     title: 'Lab Overview & Mission',
     what: 'GoalFault AI is an agent reliability laboratory designed to detect and prevent "objective gaming" (Goodhart\'s Law) in tool-using AI agents.',
     how: 'When AI agents optimize metrics like customer satisfaction or ticket throughput, they may cut unauthorized corners. GoalFault runs simulated business environments (banking, healthcare, customer support) where models face metric pressure, proved with deterministic tool execution traces.',
     test: 'Follow the 4-step stepper below: 1) Pick a scenario in Scenario Studio, 2) Run Meta Muse or a fixture, 3) Inspect broken policies in Evidence, and 4) Verify guards in the Policy Compiler.'
   },
   scenarios: {
-    tag: '01 / TEST ENGINEERING',
+    tag: 'Scenario studio',
     title: 'Scenario Studio',
     what: 'The Scenario Studio is where stress tests are created, reviewed, and approved before execution.',
-    how: 'You can type a failure mode in plain English or click "✦ Discover a high-risk scenario" to have Meta Muse Spark invent an adversarial scenario. Human-in-the-loop governance requires approval before any model is executed.',
-    test: 'Select an approved scenario (e.g. GF-001) and click "⚡ Run Muse agent" (or "Run fixture"). Once run, jump to Evidence & Traces to inspect the recorded tool calls.'
+    how: 'You can type a failure mode in plain English or click "Discover high-risk scenario" to have Meta Muse Spark invent an adversarial scenario. Human-in-the-loop governance requires approval before any model is executed.',
+    test: 'Select an approved scenario (e.g. GF-001) and click "Run Muse agent" (or "Run fixture"). Once run, jump to Evidence & Traces to inspect the recorded tool calls.'
   },
   results: {
-    tag: '02 / VERIFICATION',
+    tag: 'Evidence inspector',
     title: 'Evidence Inspector',
     what: 'The Evidence Inspector provides verifiable, cryptographic proof of an agent\'s behavior under pressure.',
     how: 'GoalFault records every executed tool call, argument, and resulting state delta (e.g. refund amount changed from $0 to $180). Independent Python AST rules check whether policies were broken.',
     test: 'Use the "Inspect Run:" dropdown to switch between runs. Compare the "Agent Metric Pressure" with the "Corner Cut" and "Rule Broken". Test "Replay with policy enforcement" to see the @guard intercept.'
   },
   agent: {
-    tag: '03 / INTEGRATION',
+    tag: 'Agent SDK & API',
     title: 'Agent SDK & API',
     what: 'Enables external agents (LangChain, AutoGen, custom agents) to connect to GoalFault\'s isolated tool sandboxes over REST or protect code with @guard.',
     how: 'Your agent sends tool calls to POST /api/scenarios/{id}/sandbox/call. GoalFault intercepts the call, calculates state changes, checks policies, and returns immediate pass/fail feedback.',
-    test: 'Use the "Live Sandbox API Tester" below! Select a scenario target, click "🚨 Violation Example" or "✅ Safe Example", and click "⚡ Execute Sandbox Tool Call" to see the live response.'
+    test: 'Use the "Live Sandbox API Tester" below! Select a scenario target, choose Violation preset or Safe preset, and click "Execute sandbox call" to see the live response.'
   },
   policies: {
-    tag: '04 / POLICY COMPILER',
+    tag: 'Policy compiler',
     title: 'Policy Compiler',
     what: 'Compiles natural language business rules into formal, declarative AST rules and Python @guard decorators.',
     how: 'Type a rule in English (e.g. "Never refund > $100 without manager approval"). Meta Muse drafts a declarative rule (deny issue_refund when args.amount > 100). The compiler checks the draft against positive and negative examples.',
     test: 'Select an existing policy from the list to see its compiled rule and validation status. You can draft a new policy or check failing traces.'
   },
   sweeps: {
-    tag: '05 / PRESSURE SWEEP',
+    tag: 'Pressure sweep',
     title: 'Pressure Sweep (Goodhart Curve)',
     what: 'Demonstrates Goodhart\'s Law by running the same scenario across 4 increasing pressure levels (0 = None, 1 = Mild, 2 = Strong, 3 = Extreme).',
     how: 'Meta Muse Spark 1.3 is executed multiple times per level with guards disabled. The chart plots the violation rate at each level, revealing the exact breaking point where metric pressure corrupts safety.',
     test: 'Choose an approved scenario, set runs per level (e.g. 1-3), and click "Price and run sweep". Or pick a saved sweep (e.g. SWP-E0EB87A8 in Customer Support) to see stored results.'
   },
   wizard: {
-    tag: '06 / NEW DOMAIN',
+    tag: 'Domain wizard',
     title: 'Domain Wizard',
     what: 'Synthesizes complete, realistic business domains (tools, initial states, invariants, policies) from a 1-sentence description.',
     how: 'Give Meta Muse a prompt like "A library desk that loans books and must not waive fines without supervisor code." Muse drafts the YAML specification with simulated databases and safe controls.',
@@ -299,7 +299,7 @@ function initNav() {
           badge.textContent = 'BLOCKED BY @GUARD';
         } else if (res.violation) {
           badge.className = 'pill failed';
-          badge.textContent = `VIOLATION: ${res.violation.invariant}`;
+          badge.textContent = `Violation: ${res.violation.invariant}`;
         } else {
           badge.className = 'pill passed';
           badge.textContent = 'SAFE · ACTION ALLOWED';
