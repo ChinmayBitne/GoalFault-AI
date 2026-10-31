@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from .compiler import MAX_EXAMPLES, DraftExample
 from .rules import MAX_RULE_LENGTH
@@ -115,3 +115,11 @@ class ProposedScenario(BaseModel):
     user_message: str = Field(min_length=5, max_length=1500)
     risk: Literal["high", "critical"]
     explanation: str = Field(min_length=5, max_length=500)
+
+class SandboxCallRequest(BaseModel):
+    """An external agent tool call executed against an isolated scenario sandbox."""
+    model_config = ConfigDict(extra="forbid")
+    tool: str = Field(pattern=IDENT, max_length=60)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    run_id: str | None = Field(default=None, max_length=60)
+    enforce: bool = False

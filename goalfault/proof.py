@@ -104,7 +104,7 @@ def proof_steps(kind: str, trace: list[dict], spec: DomainSpec, guardrails: bool
 
 
 def evidence_html(proof: dict) -> str:
-    """One run as a page. Every value is escaped."""
+    """One run as a modern security audit page. Every value is escaped."""
     def esc(value):
         return html.escape(str(value), quote=True)
     title = esc(proof.get("run_id"))
@@ -112,37 +112,55 @@ def evidence_html(proof: dict) -> str:
     parts = [
         "<!doctype html><html lang=en><head><meta charset=utf-8>",
         f"<title>GoalFault evidence {title}</title>",
-        "<style>body{font:16px/1.5 system-ui,sans-serif;max-width:740px;margin:32px auto;padding:0 16px;color:#142033}",
-        "article{border-top:1px solid #d5dde8;padding:12px 0}code{font-size:14px}</style></head><body>",
-        "<p>GoalFault evidence</p>",
+        "<style>",
+        "body{font:14px/1.6 system-ui,-apple-system,sans-serif;max-width:800px;margin:32px auto;padding:0 20px;background:#080d14;color:#e7eff9}",
+        "h1{font-size:24px;margin:8px 0;letter-spacing:-0.5px}",
+        "h2{font-size:16px;margin:0 0 10px;color:#c5f16e}",
+        "p{margin:6px 0;color:#9eb1cf}",
+        "a{color:#c5f16e;text-decoration:none}",
+        "article{background:#101a27;border:1px solid #243144;border-radius:10px;padding:16px 20px;margin:16px 0}",
+        "article.violated{border-left:4px solid #ff827f;background:#171116}",
+        "code{font-family:monospace;font-size:13px;background:#0a1420;border:1px solid #283a4f;border-radius:4px;padding:2px 6px;color:#a5d6a7;word-break:break-all}",
+        ".tag-viol{display:inline-block;background:#49272d;color:#ffa3a5;font-weight:700;font-size:10px;padding:3px 8px;border-radius:4px;margin-left:8px;vertical-align:middle}",
+        ".rule-box{background:#1f1317;border:1px solid #5a272e;border-radius:8px;padding:10px 14px;margin-top:10px}",
+        ".rule-box code{background:#130b0f;border-color:#5a272e;color:#ffa3a5}",
+        ".back-btn{display:inline-block;margin-bottom:18px;font-size:12px;font-weight:700}",
+        "</style></head><body>",
+        "<a href='/' class='back-btn'>&larr; Back to GoalFault Dashboard</a>",
+        "<p style='color:#7f9df9;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;'>GoalFault Evidence & Verification Report</p>",
         f"<h1>{title}</h1>",
         f"<p>{note} Scenario {esc(proof.get('scenario_id'))}.</p>",
     ]
     if not proof.get("replayed"):
-        parts.append("<p>State was not replayed. The rules below are the ones stored on the run.</p>")
+        parts.append("<p style='color:#ffd385'>State was not replayed. The rules below are the ones stored on the run.</p>")
     for step in proof.get("steps") or []:
         changes = step.get("state_changes") or []
         change_text = "; ".join(
             f"{c['path']}: {json.dumps(c['before'])} → {json.dumps(c['after'])}" for c in changes
         ) or "no change"
-        parts.append("<article>")
-        parts.append(f"<h2>{esc(step.get('step'))} · {esc(step.get('tool'))}</h2>")
-        parts.append(f"<p>Action: <code>{esc(json.dumps(step.get('args') or {}))}</code></p>")
-        parts.append(f"<p>State: {esc(change_text)}</p>")
-        if step.get("not_executed"):
-            parts.append("<p>This call was not run.</p>")
-        if step.get("blocked"):
-            parts.append("<p>Blocked before the tool ran.</p>")
-        if step.get("replay_matches") is False:
-            parts.append("<p>State replay did not match the stored tool result.</p>")
         policies = step.get("policies") or []
+        is_violated = bool(policies)
+        viol_tag = "<span class='tag-viol'>POLICY VIOLATION</span>" if is_violated else ""
+        art_cls = "article violated" if is_violated else "article"
+        parts.append(f"<{art_cls}>")
+        parts.append(f"<h2>Step {esc(step.get('step'))} · {esc(step.get('tool'))}{viol_tag}</h2>")
+        parts.append(f"<p>Action: <code>{esc(json.dumps(step.get('args') or {}))}</code></p>")
+        parts.append(f"<p>State: <code>{esc(change_text)}</code></p>")
+        if step.get("not_executed"):
+            parts.append("<p style='color:#ffa3a5'>This call was not run.</p>")
+        if step.get("blocked"):
+            parts.append("<p style='color:#ffa3a5'>Blocked before the tool ran.</p>")
+        if step.get("replay_matches") is False:
+            parts.append("<p style='color:#ffd385'>State replay did not match the stored tool result.</p>")
         if not policies:
             parts.append("<p>Rule: none</p>")
         for policy in policies:
             rule = policy.get("rule") or policy.get("invariant") or ""
-            parts.append(f"<p>Rule {esc(policy.get('id'))}: <code>{esc(rule)}</code></p>")
+            parts.append("<div class='rule-box'>")
+            parts.append(f"<p style='margin:0 0 4px;font-weight:700;color:#ffa3a5;'>Rule {esc(policy.get('id'))}: <code>{esc(rule)}</code></p>")
             if policy.get("text"):
-                parts.append(f"<p>Policy: {esc(policy.get('text'))}</p>")
+                parts.append(f"<p style='margin:0;color:#e7eff9;'><strong>Policy:</strong> {esc(policy.get('text'))}</p>")
+            parts.append("</div>")
         parts.append("</article>")
     parts.append("</body></html>")
     return "".join(parts)

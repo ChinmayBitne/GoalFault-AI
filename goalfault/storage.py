@@ -46,7 +46,7 @@ class Storage:
 
     def save_run(self,r:dict):
         with self.connect() as c:
-            c.execute("INSERT INTO runs(id,scenario_id,created_at,payload) VALUES (?,?,?,?)",
+            c.execute("INSERT OR REPLACE INTO runs(id,scenario_id,created_at,payload) VALUES (?,?,?,?)",
                 (r["id"],r["scenario_id"],r["created_at"],json.dumps(r)))
 
     def get_run(self,id:str)->dict|None:
