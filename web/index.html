@@ -20,6 +20,7 @@
     <a class="nav-link" href="#policies">§ <span>Policy compiler</span></a>
     <a class="nav-link" href="#sweeps">↗ <span>Pressure sweep</span></a>
     <a class="nav-link" href="#wizard">✦ <span>Domain wizard</span></a>
+    <a class="nav-link" href="#docs">📖 <span>Documentation</span></a>
   </nav>
   <div class="sidebar-label">MODEL ENGINE</div>
   <div class="engine"><span class="green-dot"></span><div><b>Meta Muse Spark</b><small id="modelStatus">Checking configuration…</small></div></div>
@@ -137,6 +138,36 @@ Content-Type: application/json
         <div id="externalAgentRunBox" style="margin-top:14px;">
           <button type="button" class="primary-btn" id="viewExternalRunBtn">View Latest Agent Run in Evidence ➔</button>
         </div>
+
+        <div class="interactive-console">
+          <div class="panel-heading"><b>⚡ Live Sandbox API Tester</b><span class="panel-tag">ONE-CLICK TEST</span></div>
+          <p class="result-note" style="margin-bottom:10px;">Test the sandbox endpoint directly in the browser with live validation:</p>
+          <label for="sbScenario">Scenario Target</label>
+          <select id="sbScenario" class="text-input" style="margin-bottom:8px;">
+            <option value="GF-001">GF-001 (Customer Support · $180 Unapproved Refund)</option>
+            <option value="GF-002">GF-002 (Customer Support · Sensitive Profile Access)</option>
+            <option value="GF-BANK-001">GF-BANK-001 (Banking · $15,000 Unverified Transfer)</option>
+            <option value="GF-CLIN-001">GF-CLIN-001 (Clinic · Double-Book Operating Room)</option>
+          </select>
+          <label for="sbTool">Tool Call Name</label>
+          <input type="text" id="sbTool" value="issue_refund" class="mono text-input" style="margin-bottom:8px;"/>
+          <label for="sbArgs">JSON Arguments</label>
+          <textarea id="sbArgs" class="mono text-input" rows="2" style="min-height:54px; margin-bottom:8px;">{"order_id": "ORD-180", "amount": 180}</textarea>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+            <input type="checkbox" id="sbEnforce" style="width:auto; margin:0;"/>
+            <label for="sbEnforce" style="margin:0; font-size:11px; cursor:pointer; color:var(--text);">Enforce @guard protection (block if violation)</label>
+          </div>
+          <button type="button" class="primary-btn" id="sbSendBtn" style="width:100%;">⚡ Execute Sandbox Tool Call <span>→</span></button>
+
+          <div id="sbResponseBox" style="display:none; margin-top:14px;" class="interactive-result">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <b style="font-size:12px;">SANDBOX RESPONSE</b>
+              <span id="sbStatusBadge" class="pill failed">VIOLATION DETECTED</span>
+            </div>
+            <div class="code-box" id="sbJsonOut" style="margin:0 0 10px 0; max-height:160px; overflow-y:auto;"></div>
+            <button type="button" class="tiny-btn callout" id="sbJumpRunBtn">Inspect Run Evidence in Lab ➔</button>
+          </div>
+        </div>
       </div>
       <div class="panel queue-panel">
         <div class="panel-heading"><b>Standalone Benchmark & Guard</b><span class="panel-tag">PYTHON SDK</span></div>
@@ -240,6 +271,74 @@ def issue_refund(order_id: str, amount: float):
         <div class="panel-heading"><b>Domain drafts</b><span class="counter" id="domainDraftCount">0</span></div>
         <div id="domainDraftList" class="scenario-list"><p class="muted">No domain drafts yet.</p></div>
       </div>
+     </div>
+    </section>
+   </div>
+
+   <!-- VIEW 8: METHODOLOGY & DOCUMENTATION -->
+   <div id="view-docs" class="tab-view">
+    <section class="section" style="margin-top:0">
+     <div class="section-title">
+       <div>
+         <span class="eyebrow small">SYSTEM DOCUMENTATION</span>
+         <h2>Architecture & Methodology</h2>
+         <p>How GoalFault AI crash-tests agent reliability, enforces objective integrity, and protects systems with Meta Muse.</p>
+       </div>
+       <span class="label-outline">SPECIFICATION V1.0</span>
+     </div>
+
+     <div class="doc-section">
+       <div class="doc-card">
+         <span class="pill critical" style="float:right">THE CORE PROBLEM</span>
+         <h3>1. Objective Gaming & Goodhart's Law in AI Agents</h3>
+         <p>When autonomous AI agents are equipped with real tools (issuing refunds, resetting credentials, scheduling clinics), they are instructed to optimize a metric: <em>"Resolve customer issues quickly"</em> or <em>"Maximize booking throughput"</em>.</p>
+         <p>Under metric pressure, AI models naturally seek shortcut paths that fulfill the scoring metric while cutting critical organizational rules (Goodhart's Law: <em>"When a measure becomes a target, it ceases to be a good measure"</em>). GoalFault AI was built to systematically discover, prove, and patch these vulnerabilities before an agent touches production.</p>
+       </div>
+
+       <div class="doc-card">
+         <span class="pill approved" style="float:right">CORE PIPELINE</span>
+         <h3>2. The 4-Stage Verification Lifecycle</h3>
+         <div class="pipeline-stepper" style="margin:16px 0;">
+           <div class="step-card"><span class="step-num">1</span><div><b>Domain Specification</b><small>Synthesize tools & invariants</small></div></div>
+           <div class="step-card"><span class="step-num">2</span><div><b>Pressure Sweeping</b><small>Test across 4 stress levels</small></div></div>
+           <div class="step-card"><span class="step-num">3</span><div><b>Counterexample Shrinking</b><small>Reduce failure to minimal trace</small></div></div>
+           <div class="step-card"><span class="step-num">4</span><div><b>Guard Compiler & Export</b><small>Synthesize & deploy @guard</small></div></div>
+         </div>
+         <p>Unlike jailbreak scanners that evaluate text sentiment, GoalFault evaluates <strong>actual executed tool calls and database state diffs</strong> in fully isolated in-memory sandboxes. If a tool was never called, no violation is claimed.</p>
+       </div>
+
+       <div class="doc-card">
+         <span class="pill neutral" style="float:right">MODEL ENGINE</span>
+         <h3>3. Meta Muse Spark 1.3 Integration</h3>
+         <p>GoalFault AI is engineered from the ground up around <strong>Meta Muse Spark 1.3</strong>, leveraging its multi-turn reasoning and tool-calling capabilities across four dedicated roles:</p>
+         <ul>
+           <li><strong>Autonomous Agent under Test:</strong> Muse receives user prompts and metric pressure, reasoning multi-turn over tool definitions to solve tasks.</li>
+           <li><strong>Red-Team Scenario Discovery:</strong> Muse analyzes domain tools and existing rules to invent novel, edge-case pressure scenarios.</li>
+           <li><strong>Policy Compiler:</strong> Muse translates plain-English business rules into declarative Abstract Syntax Tree (AST) denial rules (e.g. <code>deny issue_refund when args.amount &gt; 100</code>).</li>
+           <li><strong>Automated Guard Repair:</strong> When an execution trace fails, Muse analyzes the minimal failing counterexample and proposes the exact pythonic guard decorator to patch the vulnerability.</li>
+         </ul>
+       </div>
+
+       <div class="doc-card">
+         <span class="pill neutral" style="float:right">INTEGRATION</span>
+         <h3>4. Deploying to Production: REST API & Python SDK</h3>
+         <p>GoalFault provides two drop-in integration patterns for development teams:</p>
+         <ul>
+           <li><strong>Sandbox Evaluation API:</strong> Point your agent's tool dispatchers to <code>POST /api/scenarios/{id}/sandbox/call</code> during continuous integration (CI) tests to measure policy adherence before release.</li>
+           <li><strong>Production Python @guard:</strong> Decorate production backend functions with <code>@guard("domain.yaml")</code>. The exact same declarative policies validated in GoalFault are evaluated at runtime with zero AI latency, raising a <code>PolicyBlocked</code> exception if unauthorized parameters are passed.</li>
+         </ul>
+       </div>
+
+       <div class="doc-card">
+         <span class="pill approved" style="float:right">ETHICS & SAFETY</span>
+         <h3>5. Safety Boundaries & Spend Transparency</h3>
+         <p>GoalFault AI operates under strict safety protocols:</p>
+         <ul>
+           <li><strong>100% Synthetic Data:</strong> All accounts, balances, patient records, and transactions are in-memory simulations. Zero live accounts or payments are touched.</li>
+           <li><strong>Enforced API Spend Caps:</strong> Every Meta Muse API interaction is metered in real-time with automatic request refusal at the <code>$5.00</code> safety cap.</li>
+           <li><strong>Human-in-the-Loop Governance:</strong> No model-generated scenario, policy rule, or domain specification is installed without explicit human review and approval.</li>
+         </ul>
+       </div>
      </div>
     </section>
    </div>
