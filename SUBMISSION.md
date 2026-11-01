@@ -96,6 +96,8 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) to inspect:
 
 ## System Architecture
 
+![GoalFault AI System Architecture](docs/architecture.png)
+
 GoalFault strictly decouples agent execution from independent verification:
 
 1. **In-Memory Tool Sandboxes:** Fully isolated synthetic business systems (Customer Support, IT Helpdesk, E-commerce Returns, Clinic Scheduling, Banking Operations, Town Library Desk). Zero network, database, or financial APIs are touched.

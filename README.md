@@ -17,49 +17,7 @@ GoalFault is a small lab for finding those cases, proving them with the exact to
 
 ## How it works
 
-```mermaid
-flowchart TD
-  subgraph UI["Interactive Laboratory (web/)"]
-    Dashboard["Laboratory Dashboard"]
-    LiveTester["Live Sandbox API Tester"]
-    TraceInspector["Evidence Inspector"]
-  end
-
-  subgraph API["FastAPI Gateway (goalfault/api.py)"]
-    Router["HTTP Routing & Approval Gate"]
-    SpendMeter["Spend Meter ($5.00 Cap)"]
-    ExternalAPI["External Agent Endpoint<br/>POST /api/scenarios/{id}/sandbox/call"]
-  end
-
-  subgraph Engine["Meta Muse Spark 1.3"]
-    MuseAgent["Autonomous Agent<br/>(Chasing Metric)"]
-    RedTeam["Scenario Discovery<br/>(Adversarial Prompts)"]
-    Compiler["Policy Compiler<br/>(English -> AST Rules)"]
-    Repairer["Guard Repair<br/>(Trace -> @guard)"]
-  end
-
-  subgraph Core["Deterministic Evaluation Core"]
-    Sandbox["Isolated In-Memory Sandbox<br/>(6 Business Domains)"]
-    AST["Rule AST Interpreter<br/>(Zero Eval / Pure AST)"]
-    Shrinker["Counterexample Delta Shrinker<br/>(Greedy Minimization)"]
-  end
-
-  subgraph Production["Production Protection"]
-    GuardDecorator["@guard Decorator<br/>(Runtime Tool Intercept)"]
-  end
-
-  Dashboard --> Router
-  LiveTester --> ExternalAPI
-  ExternalAPI --> Sandbox
-  Router --> SpendMeter
-  SpendMeter --> Engine
-  Engine --> Sandbox
-  Sandbox --> AST
-  AST --> Shrinker
-  Shrinker --> TraceInspector
-  Shrinker --> Repairer
-  Repairer --> GuardDecorator
-```
+![GoalFault AI System Architecture](docs/architecture.png)
 
 1. **Describe a situation** you want to test in plain English, or ask Muse to propose one by reading the tool list and policies.
 2. **Review it.** Every test starts as `proposed`. Nothing runs until a person approves it, and the customer message can be edited first.
