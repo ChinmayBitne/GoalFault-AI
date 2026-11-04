@@ -1,7 +1,7 @@
 # GoalFault AI
 
 > **Meta Global AI Developer Hackathon 2026 (Indie Track)**  
-> 🎥 **[Watch 3-Minute Video Walkthrough](VIDEO_URL)** · 📋 **[Read Hackathon Submission Brief](SUBMISSION.md)** · ⚡ **10-Second Offline Verification:** `python -m scripts.verify`
+> 🎥 **[Watch 3-Minute Video Walkthrough](https://youtu.be/W4utzuJIgNA)** · 📋 **[Read Hackathon Submission Brief](SUBMISSION.md)** · ⚡ **10-Second Offline Verification:** `python -m scripts.verify`
 
 [![Verification](https://img.shields.io/badge/verification-20%2F20%20passed-brightgreen)](#)
 [![Meta Model](https://img.shields.io/badge/Meta%20Model-Muse%20Spark%201.3-blue)](#)

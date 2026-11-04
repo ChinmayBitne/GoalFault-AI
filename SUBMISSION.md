@@ -4,7 +4,7 @@
 **Track:** Indie Track (Solo Developer)  
 **Developer:** Chinmay Bitne  
 **Repository:** [https://github.com/ChinmayBitne/GoalFault-AI](https://github.com/ChinmayBitne/GoalFault-AI)  
-**Video Demo (3-Minute Walkthrough):** `[Link to 3-Minute Video]`  
+**Video Demo (3-Minute Walkthrough):** [https://youtu.be/W4utzuJIgNA](https://youtu.be/W4utzuJIgNA)  
 
 ---
 
